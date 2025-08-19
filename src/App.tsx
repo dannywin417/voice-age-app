@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   Mic, MicOff, Play, Square, Users, Sparkles, RefreshCw,
-  AlertCircle, X, Share2, Download, Heart, Star, Trophy, Zap, Music, ArrowRight, ArrowLeft, Info, CheckCircle2
+  AlertCircle, X, Share2, Download, Heart, Star, Zap, Music, ArrowRight, ArrowLeft, Info, CheckCircle2
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
