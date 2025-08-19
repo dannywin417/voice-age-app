@@ -15,9 +15,12 @@ API_VERSION = "1.3.0"
 
 app = FastAPI()
 
-# CORS (필요 시 도메인 추가)
-# origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
-origins = ["*"] # 🚨 이렇게 모든 주소를 허용하도록 변경합니다. (테스트용)
+# CORS
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://voice-age-app.vercel.app"  # 🚨 에러 로그에 나온 주소를 정확하게 추가
+]
 
 app.add_middleware(
     CORSMiddleware,
