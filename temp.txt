@@ -1,0 +1,868 @@
+// src/App.tsx
+
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import {
+  Mic, MicOff, Play, Square, Users, Sparkles, RefreshCw,
+  AlertCircle, X, Share2, Download, Heart, Star, Trophy, Zap, Music, ArrowRight, ArrowLeft, Info, CheckCircle2
+} from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
+import './App.css';
+
+// --- 상수 데이터 ---
+const sampleTexts: string[] = [
+  "안녕하세요! 저는 커피를 정말 좋아하고, 주말에는 드라마 정주행을 즐겨요.",
+  "오늘 날씨가 정말 좋네요. 이런 날엔 산책하면서 음악 듣는 게 최고인 것 같아요.",
+  "제가 가장 좋아하는 음식은 치킨인데요, 친구들과 함께 먹으면 더 맛있어요.",
+  "책 읽기와 영화 보기를 좋아해요. 특히 감동적인 스토리에 약한 편이에요.",
+  "여행을 정말 좋아해서 새로운 곳을 탐험하는 게 제 취미 중 하나예요.",
+];
+
+// --- 타입 정의 ---
+type Status = 'idle' | 'recording' | 'recorded' | 'analyzing' | 'result';
+interface AnalysisResult {
+  age_range: string;
+  humor_quote: string;
+  voice_type: string;
+  attraction_score: number;
+  animal_type: { type: string; emoji: string; desc: string };
+  personality_type: { type: string; emoji: string; color: string };
+  compatibility_job: string;
+  special_tag: string;
+  voice_color: string;
+  uniqueness_score: number;
+  radar_data: { feature: string; value: number }[];
+}
+interface RecordedAudio { blob: Blob; url: string; }
+
+// --- 헬퍼 함수 ---
+const getRandomSample = () => sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+
+// 원형 진행 표시(10초)
+const RecordProgress: React.FC<{ sec: number; max?: number }> = ({ sec, max = 10 }) => {
+  const pct = Math.min(100, (sec / max) * 100);
+  const radius = 54, stroke = 8, C = 2 * Math.PI * radius;
+  const dash = (pct / 100) * C;
+  return (
+    <svg width="130" height="130" role="progressbar" aria-valuenow={Math.floor(pct)} aria-valuemin={0} aria-valuemax={100}>
+      <circle cx="65" cy="65" r={radius} stroke="rgba(255,255,255,.25)" strokeWidth={stroke} fill="none" />
+      <circle cx="65" cy="65" r={radius} stroke="#22c55e" strokeWidth={stroke} fill="none"
+        strokeDasharray={`${dash} ${C - dash}`} strokeLinecap="round" transform="rotate(-90 65 65)" />
+      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fontWeight={800} fontSize="20" fill="#fff">
+        {sec.toFixed(1)}s
+      </text>
+    </svg>
+  );
+};
+
+// 레이더 차트
+const VoiceRadarChart: React.FC<{ data: { feature: string; value: number }[] }> = ({ data }) => (
+  <div className="radar-chart-container">
+    <ResponsiveContainer width="100%" height={250}>
+      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
+        <PolarGrid stroke="rgba(255, 255, 255, 0.5)" />
+        <PolarAngleAxis dataKey="feature" tick={{ fill: 'white', fontSize: 13, fontWeight: 600 }} />
+        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+        <Radar name="Voice" dataKey="value" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.6} />
+      </RadarChart>
+    </ResponsiveContainer>
+  </div>
+);
+
+const ResultCaptureCard: React.FC<{ result: AnalysisResult }> = ({ result }) => (
+  <div id="resultCardToCapture" className="share-card">
+    <div className="share-card__frame" />
+    <div className="share-card__ribbon">
+      <div className="ribbon__logo"><Sparkles size={18} /></div>
+      <span className="ribbon__brand">VOICEAGE</span>
+      <span className="ribbon__tagline">AI Voice Personality</span>
+    </div>
+    <div className="share-card__content">
+      <div className="share-card__title">
+        <h2>목소리 분석 결과</h2>
+        <span className="badge">{result.voice_color}</span>
+      </div>
+      <div className="share-card__headline">
+        <div className="headline__age">
+          <span className="age__label">목소리 나이</span>
+          <span className="age__value">{result.age_range}</span>
+        </div>
+        <div className="headline__metrics">
+          <div className="metric">
+            <Heart size={16} /><span className="metric__label">매력도</span><span className="metric__value">{result.attraction_score}</span>
+          </div>
+          <div className="metric">
+            <Star size={16} /><span className="metric__label">유니크</span><span className="metric__value">{result.uniqueness_score}%</span>
+          </div>
+        </div>
+      </div>
+      <blockquote className="share-card__quote">“{result.humor_quote}”</blockquote>
+      <div className="share-card__grid">
+        <div className="mini-card">
+          <div className="mini-card__head"><span className="emoji">{result.animal_type.emoji}</span><span className="mini-card__title">동물상</span></div>
+          <div className="mini-card__value">{result.animal_type.type}</div>
+          <div className="mini-card__desc">{result.animal_type.desc}</div>
+        </div>
+        <div className="mini-card">
+          <div className="mini-card__head"><span className="emoji" style={{ color: result.personality_type.color }}>{result.personality_type.emoji}</span><span className="mini-card__title">성격</span></div>
+          <div className="mini-card__value">{result.personality_type.type}</div>
+        </div>
+        <div className="mini-card">
+          <div className="mini-card__head"><Zap size={16} /><span className="mini-card__title">보이스</span></div>
+          <div className="mini-card__value">{result.voice_type}</div>
+        </div>
+        <div className="mini-card">
+          <div className="mini-card__head"><span className="emoji">💼</span><span className="mini-card__title">어울리는 직업</span></div>
+          <div className="mini-card__value">{result.compatibility_job}</div>
+        </div>
+      </div>
+      <div className="share-card__hashtags">
+        <span className="tag">#{result.special_tag.replace(/\s/g, '')}</span>
+        <span className="tag">#{result.voice_color.replace(/\s/g, '')}</span>
+        <span className="tag">#VoiceAge</span>
+      </div>
+    </div>
+    <div className="share-card__footer">
+      <div className="footer__brand"><Sparkles size={14} /><span>VOICEAGE</span></div>
+      <span className="footer__url">voiceage.app</span>
+    </div>
+  </div>
+);
+
+// 인사이트 칩 계산
+const computeInsightChips = (radar: AnalysisResult['radar_data']) => {
+  const labelPos: Record<string, string> = {'높이': '고음도 높음', '에너지': '에너지 넘침', '속도': '말 속도 빠름', '맑음': '맑은 톤', '안정감': '안정감 높음'};
+  const labelNeg: Record<string, string> = {'높이': '저음 기조', '에너지': '차분함', '속도': '말 속도 느림', '맑음': '허스키 톤', '안정감': '톤 변동 큼'};
+  const top = [...radar].sort((a, b) => b.value - a.value).slice(0, 3);
+  return top.map(({ feature, value }) => value >= 60 ? (labelPos[feature] || feature) : value <= 40 ? (labelNeg[feature] || feature) : feature);
+};
+
+// 공유 문구
+const shareText = (r: AnalysisResult) => `🎤 내 보이스 에이지: ${r.age_range}\n“${r.humor_quote}”\n#${r.special_tag.replace(/\s/g,'')} #${r.voice_color.replace(/\s/g,'')} #VoiceAge`;
+
+const VoiceAgeApp: React.FC = () => {
+  const [status, setStatus] = useState<Status>('idle');
+  const [gender, setGender] = useState<'male' | 'female' | null>(null);
+  const [recordedAudio, setRecordedAudio] = useState<RecordedAudio | null>(null);
+  const [recordingTime, setRecordingTime] = useState<number>(0);
+  const [totalUsers, setTotalUsers] = useState<number>(15247);
+  const [currentSample, setCurrentSample] = useState<string>(getRandomSample());
+  const [error, setError] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [resultView, setResultView] = useState<'summary' | 'details'>('summary');
+  const [toast, setToast] = useState<string | null>(null);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordingTimeRef = useRef(recordingTime);
+  const stopMeterRef = useRef<(() => void) | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTotalUsers(prev => prev + Math.floor(Math.random() * 5) + 1), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    if (status === 'recording') {
+      timer = window.setInterval(() => {
+        setRecordingTime(prev => {
+          if (prev >= 9.9) {
+            if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop();
+            return 10;
+          }
+          return +(prev + 0.1).toFixed(1);
+        });
+      }, 100);
+    }
+    return () => { if (timer) window.clearInterval(timer); };
+  }, [status]);
+
+  useEffect(() => { recordingTimeRef.current = recordingTime; }, [recordingTime]);
+
+  const setupLiveMeter = (stream: MediaStream) => {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return () => {};
+    const ctx = new Ctx();
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser(); analyser.fftSize = 256;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const bars = 16;
+    let raf = 0;
+    const tick = () => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = (data[i] - 128) / 128; sum += v * v;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const arr = Array.from({ length: bars }, (_, i) => Math.max(0, Math.min(1, rms * (1 + i * 0.15))));
+      const root = document.documentElement;
+      root.style.setProperty('--meter-rms', String(rms));
+      root.style.setProperty('--meter-bars', String(bars));
+      arr.forEach((lv, idx) => root.style.setProperty(`--meter-${idx}`, String(lv)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); try { ctx.close(); } catch {} };
+  };
+
+  const showToast = (t: string) => { setToast(t); window.setTimeout(() => setToast(null), 2200); };
+
+  const startRecording = useCallback(async () => {
+    setError(null); if (status !== 'idle' || !gender) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 44100, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      streamRef.current = stream; const audioChunks: Blob[] = [];
+      const mimeType = 'audio/webm;codecs=opus';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      stopMeterRef.current = setupLiveMeter(stream);
+      mediaRecorder.ondataavailable = (event: BlobEvent) => { if (event.data.size > 0) audioChunks.push(event.data); };
+      mediaRecorder.onstop = () => {
+        stopMeterRef.current?.(); stopMeterRef.current = null;
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        if (recordingTimeRef.current < 2) {
+          setError("너무 짧아요! 2초 이상 녹음해야 정확한 분석이 가능해요.");
+          setCurrentSample(getRandomSample());
+          setStatus('idle'); setRecordingTime(0); setRecordedAudio(null);
+        } else {
+          const audioUrl = URL.createObjectURL(audioBlob);
+          setRecordedAudio({ blob: audioBlob, url: audioUrl });
+          setStatus('recorded');
+        }
+        if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+      };
+      mediaRecorder.start(); setStatus('recording'); setRecordingTime(0);
+    } catch (err) {
+      console.error('마이크 접근 실패:', err);
+      setError('마이크 권한이 필요해요. 브라우저 설정을 확인해주세요!');
+    }
+  }, [status, gender]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') mediaRecorderRef.current.stop();
+  }, []);
+
+  const playRecording = useCallback(() => { if (recordedAudio) new Audio(recordedAudio.url).play(); }, [recordedAudio]);
+
+  const getNewSample = () => {
+    let newSample;
+    do { newSample = getRandomSample(); } while (newSample === currentSample);
+    setCurrentSample(newSample);
+  };
+
+  const resetAll = useCallback(() => {
+    if (recordedAudio) URL.revokeObjectURL(recordedAudio.url);
+    setRecordedAudio(null); setRecordingTime(0); setStatus('idle'); setError(null); setAnalysisResult(null); setResultView('summary'); setGender(null);
+  }, [recordedAudio]);
+
+  const analyzeVoice = useCallback(async () => {
+    if (!recordedAudio || !gender) { setError("성별을 선택해야 분석을 시작할 수 있습니다."); return; }
+    setStatus('analyzing'); setError(null);
+    const formData = new FormData();
+    formData.append('gender', gender);
+    formData.append('audio', recordedAudio.blob, 'recording.webm');
+    try {
+      const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+      if (!response.ok) {
+        let msg = '분석 중 에러가 발생했습니다.';
+        try { const errorData = await response.json(); msg = errorData.detail || msg; } catch {}
+        throw new Error(msg);
+      }
+      const result: AnalysisResult = await response.json();
+      setAnalysisResult(result); setStatus('result');
+      setTimeout(() => titleRef.current?.focus(), 30);
+    } catch (err: any) {
+      console.error('분석 요청 실패:', err);
+      setError(err.message || '분석 서버에 연결할 수 없습니다.');
+      showToast('연결이 불안정해요. 3초 후 자동 재시도합니다.');
+      setStatus('recorded');
+      setTimeout(() => analyzeVoice(), 3000);
+    }
+  }, [recordedAudio, gender]);
+
+  const captureResultCard = useCallback(async (): Promise<Blob | null> => {
+    setIsCapturing(true);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const cardElement = document.getElementById('resultCardToCapture') || document.querySelector('.result-container');
+    if (!cardElement) { console.error('캡처할 결과 카드 요소를 찾을 수 없습니다.'); setIsCapturing(false); return null; }
+    try {
+      const scale = Math.min(3, Math.max(2, (window.devicePixelRatio || 1) * 1.25));
+      const canvas = await html2canvas(cardElement as HTMLElement, { backgroundColor: '#6B5FAA', useCORS: true, scale });
+      return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'));
+    } catch (error) {
+      console.error('결과 카드 이미지 변환 실패:', error); return null;
+    } finally { setIsCapturing(false); }
+  }, []);
+
+  const shareResult = useCallback(async () => {
+    if (!analysisResult) return;
+    const blob = await captureResultCard(); if (!blob) { alert('이미지를 생성하는 데 실패했습니다.'); return; }
+    const file = new File([blob], 'voice-age-result.png', { type: 'image/png' });
+    const text = shareText(analysisResult);
+    const shareData: any = { title: '보이스에이지 - 내 목소리 분석 결과!', text, url: window.location.href };
+    if (navigator.canShare?.({ files: [file] })) shareData.files = [file];
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else throw new Error('web share not supported');
+    } catch {
+      try {
+        await navigator.clipboard.writeText(`${text}\n${window.location.href}`);
+        alert('공유 문구와 링크를 복사했어요! 채팅창에 붙여넣어 공유해보세요.');
+      } catch (e) {
+        console.error('클립보드 복사 실패:', e);
+        alert('복사에 실패했습니다. "저장하기"를 이용해주세요.');
+      }
+    }
+  }, [analysisResult, captureResultCard]);
+
+  const downloadResult = useCallback(async () => {
+    const blob = await captureResultCard(); if (!blob) { alert('이미지를 생성하는 데 실패했습니다.'); return; }
+    const url = URL.createObjectURL(blob); const link = document.createElement('a');
+    link.href = url; link.download = '보이스에이지-결과.png'; document.body.appendChild(link);
+    link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+  }, [captureResultCard]);
+
+  const insightChips = useMemo(() => analysisResult ? computeInsightChips(analysisResult.radar_data) : [], [analysisResult]);
+
+  const renderMainContent = () => {
+    switch (status) {
+      case 'recording': return (<div className="status-content"><RecordProgress sec={recordingTime} /><div className="recording-text"><div className="info">녹음 중...</div><div className="recording-wave" aria-hidden="true">{Array.from({ length: 16 }).map((_, i) => (<div key={i} className="wave-bar" style={{ height: `calc(8px + var(--meter-${i}, 0) * 32px)` }} />))}</div></div></div>);
+      case 'recorded': return (<div className="status-content"><div className="recorded-icon"><Square size={48} color="white" /></div><div className="recorded-text"><h2>녹음 완료!</h2><p aria-live="polite">{recordingTime.toFixed(1)}초 분량</p><div className="recorded-preview"><Music size={16} /><span>목소리 데이터 준비됨</span></div></div></div>);
+      case 'analyzing': return (<div className="status-content"><div className="analyzing-icon"><div className="analyzing-icon-inner"><Sparkles size={32} color="white" /></div></div><div className="analyzing-text"><h2>AI 분석 중...</h2><p>목소리 DNA를 확인하고 있어요! (약 2~3초)</p><div className="analyzing-steps"><div className="step active">음성 파형 분석</div><div className="step active">톤 분석</div><div className="step loading">성격 유형 매칭</div></div></div></div>);
+      case 'result':
+        if (!analysisResult) return null;
+        if (resultView === 'summary') {
+          const isUnique = analysisResult.uniqueness_score >= 90;
+          return (<div className="result-container result-summary"><div className="result-header"><h2 ref={titleRef} tabIndex={-1} className="result-title" aria-live="polite">{analysisResult.age_range}의 목소리 {isUnique && <span className="badge-unique">UNIQUE 90+</span>}</h2><p className="humor-quote">"{analysisResult.humor_quote}"</p></div>{insightChips.length > 0 && (<div className="insight-chips" aria-label="목소리 인사이트">{insightChips.map((chip, i) => <span key={i} className="chip">{chip}</span>)}</div>)}<h3 className="radar-title">목소리 특징 분석</h3><VoiceRadarChart data={analysisResult.radar_data} /><div className="scores-row"><div className="score-item"><Heart className="score-icon" size={20} /><span className="score-label">매력도</span><span className="score-value">{analysisResult.attraction_score}점</span><p className="score-desc">목소리의 안정감과 편안함</p></div><div className="score-item"><Star className="score-icon" size={20} /><span className="score-label">유니크</span><span className="score-value">{analysisResult.uniqueness_score}%</span><p className="score-desc">다른 목소리와의 차별성</p></div></div><button onClick={() => setResultView('details')} className="btn btn-details" aria-label="상세 결과 보기">자세한 결과 보기 <ArrowRight size={18} /></button></div>);
+        } else {
+          return (<div className="result-container result-details"><div className="result-header"><h2 className="result-title">상세 분석 결과</h2></div><div className="result-details-grid"><div className="detail-card animal-card"><div className="card-header"><span className="animal-emoji">{analysisResult.animal_type.emoji}</span><div><h4>목소리 동물상</h4><p>{analysisResult.animal_type.type}</p></div></div><span className="card-desc">{analysisResult.animal_type.desc}</span></div><div className="detail-card personality-card"><div className="card-header"><span className="personality-emoji" style={{ color: analysisResult.personality_type.color }}>{analysisResult.personality_type.emoji}</span><div><h4>성격 유형</h4><p>{analysisResult.personality_type.type}</p></div></div></div><div className="detail-card voice-card"><div className="card-header"><Zap size={24} color="#8b5cf6" /><div><h4>목소리 타입</h4><p>{analysisResult.voice_type}</p></div></div></div><div className="detail-card job-card"><div className="card-header"><span className="job-emoji">💼</span><div><h4>어울리는 직업</h4><p>{analysisResult.compatibility_job}</p></div></div></div></div><div className="special-tags"><span className="special-tag">#{analysisResult.special_tag}</span><span className="special-tag">#{analysisResult.voice_color}</span></div><button onClick={() => setResultView('summary')} className="btn btn-back" aria-label="요약으로 돌아가기"><ArrowLeft size={18} /> 요약으로 돌아가기</button></div>);
+        }
+      case 'idle':
+      default:
+        return (
+          <div className="status-content">
+            <div className="gender-selector">
+              <h3 className="gender-title">성별을 선택해주세요</h3>
+              <div className="gender-buttons">
+                <button className={`btn-gender ${gender === 'male' ? 'selected' : ''}`} onClick={() => setGender('male')} aria-pressed={gender === 'male'}>남성 {gender === 'male' && <CheckCircle2 size={20} />}</button>
+                <button className={`btn-gender ${gender === 'female' ? 'selected' : ''}`} onClick={() => setGender('female')} aria-pressed={gender === 'female'}>여성 {gender === 'female' && <CheckCircle2 size={20} />}</button>
+              </div>
+            </div>
+            <button className="idle-icon" onClick={startRecording} disabled={!gender} aria-label="녹음 시작"><div className="mic-pulse"><Mic size={64} color="white" /></div></button>
+            <div className="idle-text">
+              <h2>{gender ? "목소리를 들려주세요!" : "성별 선택 후 시작"}</h2>
+              <p>10초면 충분해요</p>
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="app-container">
+      <header className="app-header">
+        <div className="title-group"><Sparkles size={32} className="sparkle-icon" /><h1>보이스에이지</h1><Sparkles size={32} className="sparkle-icon" /></div>
+        <p className="subtitle">AI가 분석하는 내 목소리의 모든 것</p>
+        <div className="header-row">
+          <div className="user-counter"><Users size={20} /><span>지금까지 {totalUsers.toLocaleString()}명이 테스트했어요!</span></div>
+          <button className="privacy-btn" aria-label="프라이버시 안내" onClick={() => setShowPrivacy(true)}><Info size={18} /> 정보</button>
+        </div>
+      </header>
+      <main className="main-content">
+        <div className="card">
+          <div className="card-status-display">{renderMainContent()}</div>
+          {(status === 'idle' || status === 'recording') && (<div className="sample-text-box" aria-live="polite"><div className="sample-text-header"><span>💬 이런 식으로 말해보세요:</span><button onClick={getNewSample} title="다른 예시 보기" aria-label="샘플 문장 바꾸기"><RefreshCw size={16} /></button></div><p>"{currentSample}"</p></div>)}
+          {error && (<div className="error-box" role="alert"><AlertCircle size={20} /><span>{error}</span><button onClick={() => setError(null)} aria-label="오류 메시지 닫기"><X size={20} /></button></div>)}
+          <div className="button-group">
+            {status === 'idle' && (<button onClick={startRecording} className="btn btn-primary" disabled={!gender} aria-label="녹음 시작"><Mic size={20} />{gender ? '녹음 시작' : '성별을 먼저 선택하세요'}</button>)}
+            {status === 'recording' && (<button onClick={stopRecording} className="btn btn-danger" aria-label="녹음 중지"><MicOff size={20} />녹음 중지</button>)}
+            {status === 'recorded' && (<><button onClick={playRecording} className="btn btn-secondary" aria-label="녹음 재생"><Play size={18} />녹음 재생</button><div className="grid-buttons"><button onClick={resetAll} className="btn btn-light" aria-label="다시 녹음">다시 녹음</button><button onClick={analyzeVoice} className="btn btn-accent" aria-label="분석 시작"><Sparkles size={18} />분석 시작!</button></div></>)}
+            {status === 'result' && (<button onClick={resetAll} className="btn btn-primary" aria-label="다시 분석하기"><RefreshCw size={20} /> 다시 분석하기</button>)}
+          </div>
+        </div>
+      </main>
+      <footer className="app-footer"><p>🎯 목소리 나이대 + 성격 + 매력도 + 동물상까지!</p></footer>
+      {status === 'result' && analysisResult && (<div className="cta-sticky" role="region" aria-label="공유 및 저장"><button onClick={shareResult} className="btn btn-share" aria-label="결과 공유하기"><Share2 size={18} />공유</button><button onClick={downloadResult} className="btn btn-download" aria-label="결과 저장하기"><Download size={18} />저장</button></div>)}
+      {isCapturing && analysisResult && (<div className="capture-container"><ResultCaptureCard result={analysisResult} /></div>)}
+      {isCapturing && !analysisResult && (<div className="modal-overlay"><div className="share-modal"><h3>결과 이미지 생성 중...</h3><p>잠시만 기다려주세요!</p><div className="analyzing-icon"><div className="analyzing-icon-inner"><Download size={32} color="white" /></div></div></div></div>)}
+      {showPrivacy && (<div className="modal-overlay" onClick={() => setShowPrivacy(false)}><div className="privacy-modal" onClick={(e) => e.stopPropagation()}><div className="privacy-head"><h3>프라이버시 안내</h3><button aria-label="닫기" onClick={() => setShowPrivacy(false)}><X size={18} /></button></div><ul className="privacy-list"><li>🎤 녹음은 분석 목적에만 사용되며 서버에 저장하지 않습니다.</li><li>⏱ 10초 이내의 짧은 발성이 가장 정확합니다.</li><li>🔇 조용한 환경에서 진행하면 정확도가 올라갑니다.</li></ul><button className="btn btn-primary" onClick={() => setShowPrivacy(false)}>확인</button></div></div>)}
+      {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
+    </div>
+  );
+};
+
+export default VoiceAgeApp;
+
+=======================================
+
+/* 폰트 & 리셋 */
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* 디자인 토큰 */
+:root{ --bg-grad-start:#667eea; --bg-grad-end:#764ba2; --glass-bg: rgba(255,255,255,.12); --glass-strong: rgba(255,255,255,.15); --glass-border: rgba(255,255,255,.18); --text-strong:#fff; --text-dim:rgba(255,255,255,.9); --text-soft:rgba(255,255,255,.75); --accent:#8b5cf6; --accent2:#ec4899; --ok:#22c55e; --danger:#ef4444; --info:#3b82f6; --shadow-md: 0 8px 20px rgba(0,0,0,.12); --shadow-lg: 0 12px 28px rgba(0,0,0,.18); --radius-lg: 20px; --radius-xl: 32px; --focus: 0 0 0 3px rgba(99,102,241,.45); }
+
+/* 레이아웃 */
+.app-container { min-height: 100vh; background: linear-gradient(135deg, var(--bg-grad-start) 0%, var(--bg-grad-end) 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; color: var(--text-strong); box-sizing: border-box; }
+.app-header, .main-content, .app-footer { width: 100%; max-width: 480px; margin: 0 auto; }
+
+/* 헤더 */
+.app-header { text-align: center; margin-bottom: 24px; }
+.title-group { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; }
+.sparkle-icon { animation: sparkle 2s infinite; }
+@keyframes sparkle { 0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.8; } 50% { transform: scale(1.1) rotate(180deg); opacity: 1; } }
+.title-group h1 { font-size: 2.4rem; font-weight: 800; margin: 0; background: linear-gradient(45deg, #fff, #f0f9ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.subtitle { font-size: 1.1rem; color: var(--text-dim); margin-bottom: 16px; font-weight: 500; }
+.header-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.user-counter { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--text-soft); font-size: 0.9rem; background: rgba(255, 255, 255, 0.1); padding: 8px 16px; border-radius: 20px; backdrop-filter: blur(10px); }
+.privacy-btn{ display:inline-flex; align-items:center; gap:6px; color:#fff; background: rgba(255,255,255,.15); border:1px solid var(--glass-border); padding:8px 12px; border-radius: 12px; cursor:pointer; transition: .2s; }
+.privacy-btn:hover{ background: rgba(255,255,255,.25); transform: translateY(-1px); }
+.privacy-btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+
+/* 카드 */
+.card { background: rgba(255, 255, 255, 0.15); backdrop-filter: blur(20px); border-radius: var(--radius-xl); padding: 32px; box-shadow: var(--shadow-lg); border: 1px solid var(--glass-border); }
+.card-status-display { text-align: center; margin-bottom: 24px; min-height: 220px; display: flex; align-items: center; justify-content: center; }
+.status-content { display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%; }
+
+/* Idle */
+.idle-icon { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; border:0; }
+.idle-icon:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }
+.idle-icon:focus-visible{ outline:none; box-shadow: var(--focus); }
+.mic-pulse { position: relative; z-index: 2; }
+.idle-icon::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, rgba(255, 255, 255, 0.3), transparent); animation: rotate 3s linear infinite; }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.idle-text h2 { font-size: 1.6rem; font-weight: 800; margin: 0 0 8px 0; }
+.idle-text p { font-size: 1rem; color: var(--text-dim); margin: 0 0 16px 0; }
+.idle-features { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.idle-features span { background: rgba(255, 255, 255, 0.15); padding: 6px 12px; border-radius: 16px; font-size: 0.85rem; font-weight: 600; }
+
+/* Recording */
+.recording-text .info { font-size: 1rem; color: var(--text-dim); }
+.recording-wave { display: flex; gap: 4px; align-items: end; height: 40px; }
+.wave-bar { width: 4px; background: rgba(255, 255, 255, 0.9); border-radius: 2px; }
+
+/* Recorded */
+.recorded-icon { width: 120px; height: 120px; background: var(--ok); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: successBounce 0.6s ease-out; }
+@keyframes successBounce { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { transform: scale(1); opacity: 1; } }
+.recorded-text h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0; }
+.recorded-text p { font-size: 1rem; color: var(--text-dim); margin: 0 0 12px 0; }
+.recorded-preview { display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; }
+
+/* Analyzing */
+.analyzing-icon { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: spin 2s linear infinite; background: conic-gradient(from 0deg, #8b5cf6, #ec4899, #f97316, #8b5cf6); padding: 8px; }
+.analyzing-icon-inner { width: 100%; height: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.analyzing-text h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0; }
+.analyzing-text p { font-size: 1rem; color: var(--text-dim); margin: 0 0 16px 0; }
+.analyzing-steps { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.step { padding: 8px 12px; border-radius: 12px; font-size: 0.85rem; background: rgba(255, 255, 255, 0.1); opacity: 0.5; transition: all 0.3s ease; }
+.step.active { background: rgba(34, 197, 94, 0.3); opacity: 1; }
+.step.loading { background: rgba(249, 115, 22, 0.3); opacity: 1; animation: loading 1.5s infinite; }
+@keyframes loading { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+/* Result */
+.result-container { width: 100%; animation: fadeIn 0.5s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.result-header { text-align: center; margin-bottom: 18px; }
+.result-title { font-size: 1.6rem; font-weight: 900; margin: 0 0 8px 0; }
+.badge-unique{ margin-left:8px; padding:4px 8px; background:linear-gradient(135deg,#f59e0b,#f43f5e); color:#fff; border-radius:999px; font-size:.75rem; vertical-align: middle; }
+.result-summary .humor-quote { font-size: 1.1rem; font-style: italic; color: var(--text-dim); margin: 0; line-height: 1.5; }
+.insight-chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:14px 0 6px; }
+.chip{ background: rgba(255,255,255,.16); border:1px solid var(--glass-border); padding:6px 10px; border-radius:999px; font-size:.85rem; font-weight:700; }
+.scores-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.score-item { background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.score-icon { color: #f59e0b; }
+.score-label { font-size: 0.9rem; color: var(--text-soft); }
+.score-value { font-size: 1.3rem; font-weight: 800; }
+.score-desc { font-size: 0.8rem; margin: 4px 0 0 0; color: var(--text-soft); text-align: center; }
+.radar-chart-container { width: 100%; height: 250px; margin: 0; }
+.radar-title { font-size: 1rem; font-weight: 700; color: var(--text-dim); text-align: center; margin: 18px 0 0 0; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 18px; }
+.result-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+.detail-card { background: var(--glass-strong); border-radius: 20px; padding: 20px; backdrop-filter: blur(10px); border: 1px solid var(--glass-border); transition: transform 0.2s ease; }
+.detail-card:hover { transform: translateY(-2px); }
+.card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.animal-emoji, .personality-emoji, .job-emoji { font-size: 2rem; flex-shrink: 0; }
+.card-header h4 { font-size: 0.9rem; font-weight: 800; margin: 0 0 4px 0; color: var(--text-soft); }
+.card-header p { font-size: 0.98rem; font-weight: 800; margin: 0; line-height: 1.3; }
+.card-desc { font-size: 0.85rem; color: var(--text-soft); font-style: italic; }
+.special-tags { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; }
+.special-tag { background: linear-gradient(45deg, #8b5cf6, #ec4899); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 800; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
+
+/* 버튼 */
+.button-group { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+.grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.btn { width: 100%; padding: 16px 20px; border-radius: 20px; font-weight: 800; font-size: 1rem; transition: all 0.25s ease; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; backdrop-filter: blur(10px); }
+.btn:focus-visible{ outline:none; box-shadow: var(--focus); }
+.btn-primary { background: rgba(255, 255, 255, 0.92); color: #6d28d9; box-shadow: var(--shadow-md); }
+.btn-primary:hover { background: white; transform: translateY(-2px); box-shadow: 0 12px 25px rgba(0, 0, 0, 0.15); }
+.btn-danger { background: var(--danger); color: white; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
+.btn-danger:hover { background: #dc2626; transform: translateY(-2px); }
+.btn-secondary { background: var(--info); color: white; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); }
+.btn-secondary:hover { background: #2563eb; transform: translateY(-2px); }
+.btn-light { background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.35); }
+.btn-light:hover { background: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
+.btn-accent { background: linear-gradient(135deg, #9333ea, #db2777); color: white; box-shadow: 0 8px 20px rgba(147, 51, 234, 0.4); }
+.btn-accent:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 12px 25px rgba(147, 51, 234, 0.5); }
+.btn-details { margin-top: 20px; background: rgba(255, 255, 255, 0.92); color: #6d28d9; }
+.btn-back { margin-top: 10px; background: rgba(255, 255, 255, 0.2); color: white; }
+
+/* 고정 CTA */
+.cta-sticky{ position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); width: calc(100% - 24px); max-width: 480px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; z-index: 100; padding: 8px; border-radius: 16px; background: rgba(30,30,30,.35); backdrop-filter: blur(8px); border:1px solid rgba(255,255,255,.2); }
+.btn-share { background: linear-gradient(135deg, #06b6d4, #3b82f6); color: white; }
+.btn-download { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+
+/* 샘플 & 에러 */
+.sample-text-box { margin-bottom: 18px; padding: 18px; background: var(--glass-strong); border-radius: 20px; border: 1px solid var(--glass-border); }
+.sample-text-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; font-weight: 800; }
+.sample-text-header button { background: rgba(255, 255, 255, 0.2); border: none; border-radius: 8px; padding: 6px; color: white; cursor: pointer; transition: all 0.2s ease; }
+.sample-text-header button:hover { background: rgba(255, 255, 255, 0.3); transform: rotate(180deg); }
+.sample-text-box p { font-size: 0.95rem; line-height: 1.6; margin: 0; }
+.error-box { margin-bottom: 12px; display: flex; align-items: center; gap: 12px; padding: 14px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 16px; }
+.error-box button { margin-left: auto; background: none; border: none; color: white; cursor: pointer; }
+
+/* 푸터 */
+.app-footer { margin-top: 18px; text-align: center; color: var(--text-soft); font-size: 0.9rem; }
+
+/* 모달 & 캡처 */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(10px); padding:16px; }
+.share-modal { background: rgba(255, 255, 255, 0.95); color: #1f2937; padding: 28px; border-radius: 24px; text-align: center; max-width: 360px; width:100%; }
+.privacy-modal{ background:#18181b; color:#fff; padding: 22px; border-radius: 20px; width:100%; max-width: 420px; border:1px solid rgba(255,255,255,.15); }
+.privacy-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.privacy-head h3{ margin:0; font-size:1.1rem; }
+.privacy-head button{ background:transparent; color:#fff; border:0; cursor:pointer; }
+.privacy-list{ margin:0 0 14px 0; padding-left:18px; }
+.privacy-list li{ margin:8px 0; color:var(--text-dim); }
+.capture-container { position: absolute; top: 0; left: -9999px; z-index: -1; width: 480px; padding: 32px; background: linear-gradient(135deg, var(--bg-grad-start) 0%, var(--bg-grad-end) 100%); color: white; box-sizing: content-box; }
+
+/* 토스트 */
+.toast{ position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,.9); color:#fff; padding:10px 14px; border-radius:14px; box-shadow: var(--shadow-md); z-index: 1200; }
+
+/* 접근성/성능 */
+@media (max-width: 480px) { .app-container { padding: 20px 12px; } .card { padding: 24px; backdrop-filter: blur(10px); } .title-group h1 { font-size: 2.1rem; } .result-details-grid { grid-template-columns: 1fr; } .scores-row { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce){ .sparkle-icon, .analyzing-icon { animation: none; } }
+
+/* 공유/저장용 카드 스타일 */
+.capture-container { position: absolute; top: 0; left: -9999px; z-index: -1; width: 720px; padding: 36px; background: linear-gradient(135deg, #5f68e6 0%, #6b53b4 45%, #8f4fa8 100%); color: white; box-sizing: content-box; }
+.share-card{ position: relative; width: 100%; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.28); background: radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,.14), transparent 60%), radial-gradient(800px 600px at 100% 0%, rgba(255,255,255,.08), transparent 55%), rgba(255,255,255,.12); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.18); }
+.share-card__frame{ position:absolute; inset:0; pointer-events:none; background: linear-gradient(135deg, rgba(255,255,255,.6), rgba(255,255,255,0) 30%) border-box; mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0); }
+.share-card__ribbon{ position: relative; display:flex; align-items:center; gap:10px; padding: 14px 18px; background: linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,.08)); border-bottom: 1px solid rgba(255,255,255,.18); }
+.ribbon__logo{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; background: linear-gradient(135deg,#f59e0b,#f43f5e); color:#fff; }
+.ribbon__brand{ font-weight:900; letter-spacing: .12em; font-size:.9rem; }
+.ribbon__tagline{ margin-left:auto; font-size:.8rem; opacity:.85; }
+.share-card__content{ padding: 22px 22px 18px; }
+.share-card__title{ display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+.share-card__title h2{ margin:0; font-weight:900; font-size:1.4rem; letter-spacing:-.01em; }
+.badge{ background: linear-gradient(135deg,#8b5cf6,#ec4899); color:#fff; font-weight:800; font-size:.8rem; padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,.25); }
+.share-card__headline{ display:flex; gap:16px; align-items:stretch; margin-bottom: 14px; }
+.headline__age{ flex: 1.2; background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.10)); border:1px solid rgba(255,255,255,.22); border-radius: 16px; padding: 16px 18px; }
+.age__label{ display:block; font-size:.85rem; opacity:.85; margin-bottom:4px; }
+.age__value{ font-size:1.5rem; font-weight:900; letter-spacing:-.02em; }
+.headline__metrics{ flex: 1; display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.metric{ display:flex; align-items:center; gap:8px; justify-content:center; background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.10)); border:1px solid rgba(255,255,255,.22); border-radius: 16px; padding: 12px; }
+.metric__label{ font-size:.8rem; opacity:.85; }
+.metric__value{ font-size:1.15rem; font-weight:900; }
+.share-card__quote{ margin: 12px 0 16px; padding: 14px 16px; background: rgba(0,0,0,.18); border-left: 4px solid rgba(245,158,11,.9); border-radius: 12px; font-size: .98rem; line-height: 1.5; }
+.share-card__grid{ display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.mini-card{ background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.20); border-radius: 14px; padding: 12px; }
+.mini-card__head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; opacity:.95; }
+.mini-card__title{ font-size:.8rem; font-weight:800; }
+.mini-card__value{ font-weight:900; font-size:.95rem; line-height:1.25; }
+.mini-card__desc{ margin-top:6px; font-size:.78rem; opacity:.85; }
+.emoji{ font-size:1.1rem; }
+.share-card__hashtags{ margin-top: 16px; display:flex; flex-wrap:wrap; gap:8px; }
+.tag{ background: rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28); padding:6px 10px; border-radius:999px; font-size:.85rem; font-weight:800; }
+.share-card__footer{ display:flex; align-items:center; justify-content:space-between; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,.18); background: linear-gradient(90deg, rgba(255,255,255,.12), rgba(255,255,255,.06)); }
+.footer__brand{ display:inline-flex; align-items:center; gap:6px; font-weight:900; letter-spacing:.08em; }
+.footer__url{ font-size:.85rem; opacity:.9; }
+@media (max-width: 720px){ .share-card__grid{ grid-template-columns: 1fr 1fr; } }
+
+/* Idle 상태 - 성별 선택 */
+.gender-selector { margin-bottom: 20px; width: 100%; }
+.gender-title { font-size: 1rem; font-weight: 700; color: var(--text-dim); margin: 0 0 12px 0; }
+.gender-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-gender { padding: 14px; border-radius: 16px; font-weight: 800; font-size: 1rem; transition: all 0.25s ease; border: 2px solid var(--glass-border); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--glass-bg); color: var(--text-dim); }
+.btn-gender:hover { background: var(--glass-strong); border-color: rgba(255,255,255,0.4); }
+.btn-gender.selected { background: rgba(255, 255, 255, 0.92); color: #6d28d9; border-color: transparent; box-shadow: var(--shadow-md); }
+
+/* 비활성화된 버튼 스타일 */
+.btn:disabled, .idle-icon:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+.idle-icon:disabled:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1); }
+.idle-icon:disabled::before { animation: none; }
+
+======================================================
+
+# api/analyze.py
+
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+import librosa
+import numpy as np
+import io
+from pydub import AudioSegment
+import random
+import traceback
+
+app = FastAPI()
+
+origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- 데이터 풀 (풍부한 데이터 유지) ---
+voice_analysis_data = {
+    "age_groups": {
+        "10s": {"range": "10대", "humor": ["목소리에서 '엄마 용돈 올려달라'는 간절함이 느껴져요! 🌸", "라면 끓이는 소리만 들어도 달려올 것 같은 목소리! ⚡", "밤 12시에 '숙제 언제 하지?' 하는 목소리네요! 📱", "청춘 드라마에서 '야, 너 좋아해' 고백할 목소리! 🎭", "새로 나온 줄임말을 일주일 만에 마스터할 것 같아요!", "에너지 드링크가 목소리로 변한 느낌!"]},
+        "20s_early": {"range": "20대 초반", "humor": ["대학 과제 마감 2시간 전의 절망과 희망이 공존하는 목소리! 🎓", "밤새 팀플하고 '이번엔 진짜 A+ 받을 거야' 하는 목소리!", "MT에서 '우리 과 최고!' 외칠 목소리에요!", "'오늘 뭐 먹지?'가 인생 최대 고민인 목소리!", "개강파티 주최자 목소리네요!", "친구 번호 물어봐달라고 부탁받을 목소리!"]},
+        "20s_late": {"range": "20대 후반", "humor": ["이제 막 '어른'이라는 가면을 쓰기 시작한 목소리! 🍺", "퇴근길에 '오늘도 고생했다' 혼잣말할 목소리네요!", "첫 월급으로 '이제야 사람 됐다' 느끼는 목소리!", "주말 약속 없으면 인싸 자격 박탈당할 것 같은 목소리!", "연애할 때 가장 설레지만 현실은 솔로인 목소리 💕", "독립 후 '집에서 속옷만 입고 다니는 자유'를 만끽하는 목소리!"]},
+        "30s_early": {"range": "30대 초반", "humor": ["안정감은 있는데 여전히 게임 밤새는 목소리예요.", "넷플릭스 정주행이 최고의 힐링이라고 확신하는 목소리!", "'아, 허리야...' 첫 신음소리를 낸 목소리!", "회사에서 '믿고 맡길 수 있는' 목소리 💼", "결혼식 축사에서 웃음과 감동을 동시에 줄 목소리!", "커피 없으면 좀비가 되는 목소리 ☕"]},
+        "30s_late": {"range": "30대 후반", "humor": ["깊이는 있는데 아직 유튜브 알고리즘에 당하는 목소리! 💰", "재테크 유튜브 보면서 '나도 부자 될 수 있어' 하는 목소리!", "육아 현실에 치여도 아이 앞에선 천사가 되는 목소리 👶", "캠핑 가서 '자연이 최고야' 하지만 와이파이 찾는 목소리!", "인생 황금기라지만 체력은 이미 하향곡선인 목소리! ✨", "'집이 천국'이라는 진리를 깨달은 목소리!"]},
+        "40s_early": {"range": "40대 초반", "humor": ["편안하지만 갑자기 '요즘 애들은...' 하고 싶어지는 목소리!", "와인 마시면서 '인생을 논하고' 싶어지는 목소리 🍷", "후배들에게 밥 사주면서 '내 젊었을 때는' 시전할 목소리!", "아이 숙제 도와주다가 '이게 뭐야?' 할 목소리 📝", "경험담이 레전드가 된 목소리 📚", "골프 치면서 '스트레스 푸는' 목소리!"]},
+        "40s_late": {"range": "40대 후반", "humor": ["지혜롭지만 아직 스마트폰 기능을 다 모르는 목소리!", "'내가 너 때는...' 전설의 시작을 알리는 목소리!", "인생의 단맛을 아는 동시에 쓴맛도 아는 목소리!", "다큐 보면서 '역시 옛날이 좋았어' 할 목소리!", "가족여행 계획 세우는 게 취미가 된 목소리!", "친구 모임에서 '건강이 최고야' 외치는 목소리!"]},
+        "50s_plus": {"range": "50대 이상", "humor": ["모든 것을 다 겪어본 '인생 고수'의 여유로운 목소리!", "차 한 잔에 '인생 철학'을 담아낼 수 있는 목소리 🍵", "'이제야 진짜 내 인생이 시작이야' 하는 목소리 🎭", "손자 손녀에게 '옛날에 할아버지는...' 시전하는 목소리!", "등산복이 일상복이 된 목소리 🏔️", "텃밭에서 '내가 기른 배추가 최고야' 하는 목소리!"]},
+    },
+    "animalTypes": [{"id": "cat", "type": "고양이상", "emoji": "🐱", "desc": "츤데레의 완성체, 관심없는 척 하지만 사실 관종"}, {"id": "dog", "type": "강아지상", "emoji": "🐶", "desc": "세상 모든 사람이 좋은 사람일 거라고 믿는 순수함"}, {"id": "bear", "type": "곰상", "emoji": "🐻", "desc": "포근한 인간 담요, 안기고 싶게 만드는 마성의 체질"}, {"id": "fox", "type": "여우상", "emoji": "🦊", "desc": "계산기보다 빠른 두뇌, 눈빛만으로 사람 홀리는 마법사"}, {"id": "hamster", "type": "햄스터상", "emoji": "🐹", "desc": "입에 음식 가득 넣고도 귀여운 반칙급 외모"}, {"id": "lion", "type": "사자상", "emoji": "🦁", "desc": "가만히 있어도 포스 폭발, 천상천하 유아독존"}, {"id": "rabbit", "type": "토끼상", "emoji": "🐰", "desc": "깜찍함으로 세상을 정복하는 중, 보호본능 자극 전문가"}, {"id": "wolf", "type": "늑대상", "emoji": "🐺", "desc": "야성미 철철 흘러넘치는 매력, 길들여지지 않는 자유로운 영혼"}],
+    "personalityTypes": [{"id": "leader", "type": "타고난 리더형", "emoji": "👑", "color": "#f59e0b"}, {"id": "emotional", "type": "따뜻한 감성형", "emoji": "💝", "color": "#ec4899"}, {"id": "maker", "type": "분위기 메이커형", "emoji": "🎉", "color": "#8b5cf6"}, {"id": "stable", "type": "깊고 차분한 안정형", "emoji": "🧘", "color": "#06b6d4"}, {"id": "humorous", "type": "유머러스한 재미형", "emoji": "😄", "color": "#10b981"}, {"id": "artist", "type": "창의적인 아티스트형", "emoji": "🎨", "color": "#f97316"}, {"id": "analytical", "type": "지적이고 분석적인 형", "emoji": "🤓", "color": "#6366f1"}, {"id": "active", "type": "활동적인 스포츠형", "emoji": "🏃", "color": "#ef4444"},],
+    "compatibilityJobs": ["라디오 DJ", "성우", "가수", "아나운서", "팟캐스터", "유튜버", "교사", "상담사", "배우", "MC", "오디오북 내레이터", "통역사", "콜센터 상담원", "강사"],
+    "specialTags": ["ASMR 천재", "목소리 마약", "귀호강 주인공", "보이스 피셔", "음성 치료사", "힐링 보이스", "매력 발산기", "카리스마 폭발", "목소리 꿀", "보컬 DNA", "음성 마술사", "귀감 제조기"],
+    "voiceColors": ["루비 레드", "사파이어 블루", "에메랄드 그린", "골든 옐로우", "아메시스트 퍼플", "다이아몬드 화이트", "오닉스 블랙", "로즈 골드", "실버 화이트", "코발트 블루"]
+}
+
+# --- ✨ 핵심 함수 정의 부분 (개선됨) ---
+
+def analyze_pitch(y, sr):
+    pitch, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
+    valid_pitch = pitch[~np.isnan(pitch)]
+    return np.median(valid_pitch) if len(valid_pitch) > 0 else 150.0
+
+def analyze_energy(y):
+    return np.mean(librosa.feature.rms(y=y))
+
+def analyze_spectral_centroid(y, sr):
+    return np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+
+def analyze_tempo(y, sr):
+    try:
+        tempo, _ = librosa.beat.beat_track(y=y, sr=sr, start_bpm=60, end_bpm=180)
+        return tempo[0] if isinstance(tempo, np.ndarray) else tempo
+    except Exception:
+        return 120.0
+
+def analyze_pitch_std(y, sr):
+    pitch, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'))
+    valid_pitch = pitch[~np.isnan(pitch)]
+    return np.std(valid_pitch) if len(valid_pitch) > 1 else 15.0
+
+def analyze_harmonicity(y):
+    y_harmonic, y_percussive = librosa.effects.hpss(y)
+    harmonic_energy = np.sum(y_harmonic**2)
+    percussive_energy = np.sum(y_percussive**2)
+    if percussive_energy == 0: return 20.0
+    hnr = 10 * np.log10(harmonic_energy / percussive_energy)
+    return hnr
+
+def get_age_key_female(pitch, spectral_centroid, energy):
+    """여성 목소리 나이대 추정"""
+    if pitch > 245: return "10s"
+    elif pitch > 220: return "20s_early"
+    elif pitch > 200: return "20s_late"
+    elif pitch > 185: return "30s_early" if energy > 0.08 else "30s_late"
+    elif pitch > 170: return "40s_early" if spectral_centroid > 2200 else "40s_late"
+    else: return "50s_plus"
+
+def get_age_key_male(pitch, spectral_centroid, energy):
+    """남성 목소리 나이대 추정"""
+    if pitch > 165: return "10s"
+    elif pitch > 140: return "20s_early"
+    elif pitch > 125: return "20s_late"
+    elif pitch > 110: return "30s_early" if energy > 0.07 else "30s_late"
+    elif pitch > 95: return "40s_early" if spectral_centroid > 1800 else "40s_late"
+    else: return "50s_plus"
+
+def get_voice_profile(features):
+    profile = set()
+    if features['pitch'] > 180: profile.add('high_pitch')
+    elif features['pitch'] < 130: profile.add('low_pitch')
+    else: profile.add('mid_pitch')
+    if features['energy'] > 0.1: profile.add('high_energy')
+    elif features['energy'] < 0.05: profile.add('low_energy')
+    else: profile.add('mid_energy')
+    if features['harmonicity'] > 7.0: profile.add('clear_voice')
+    elif features['harmonicity'] < 3.0: profile.add('husky_voice')
+    else: profile.add('soft_voice')
+    if features['pitch_std'] > 35: profile.add('dynamic_tone')
+    else: profile.add('stable_tone')
+    return profile
+
+def analyze_details_based_on_profile(profile):
+    """음성 프로필을 기반으로 모든 세부 결과를 결정합니다."""
+    voice_type_map = {
+        ('high_energy', 'dynamic_tone'): "활기찬 에너지 보이스", ('high_pitch', 'clear_voice'): "맑고 청량한 크리스탈 보이스",
+        ('low_pitch', 'stable_tone'): "깊고 카리스마 있는 베이스 보이스", ('low_energy', 'soft_voice'): "차분하고 속삭이는 위스퍼 보이스",
+        ('clear_voice',): "따뜻하고 부드러운 허니 보이스", ('husky_voice', 'high_energy'): "파워풀하고 강렬한 썬더 보이스",
+        ('mid_energy', 'dynamic_tone'): "감성적이고 몽환적인 문라이트 보이스",
+    }
+    voice_type = "시원하고 깔끔한 민트 보이스"
+    for p_set, v_type in voice_type_map.items():
+        if all(p in profile for p in p_set): voice_type = v_type; break
+    
+    animal_type_map = {
+        ('high_pitch', 'dynamic_tone'): "토끼상", ('high_pitch', 'low_energy'): "고양이상",
+        ('high_pitch', 'high_energy'): "강아지상", ('low_pitch', 'husky_voice'): "늑대상",
+        ('low_pitch', 'high_energy'): "사자상", ('mid_pitch', 'stable_tone'): "곰상",
+        ('mid_pitch', 'dynamic_tone'): "여우상"
+    }
+    animal = "햄스터상"
+    for p_set, a_type in animal_type_map.items():
+        if all(p in profile for p in p_set): animal = a_type; break
+    animal_type = next((item for item in voice_analysis_data["animalTypes"] if item["type"] == animal), random.choice(voice_analysis_data["animalTypes"]))
+    
+    personality_type_map = {
+        ('high_energy', 'dynamic_tone'): "분위기 메이커형", ('low_energy', 'stable_tone'): "깊고 차분한 안정형",
+        ('low_pitch', 'stable_tone'): "타고난 리더형", ('high_pitch', 'dynamic_tone'): "창의적인 아티스트형",
+        ('high_energy', 'clear_voice'): "활동적인 스포츠형", ('husky_voice', 'dynamic_tone'): "유머러스한 재미형",
+        ('clear_voice', 'stable_tone'): "지적이고 분석적인 형",
+    }
+    personality = "따뜻한 감성형"
+    for p_set, p_type in personality_type_map.items():
+        if all(p in profile for p in p_set): personality = p_type; break
+    personality_type = next((item for item in voice_analysis_data["personalityTypes"] if item["type"] == personality), random.choice(voice_analysis_data["personalityTypes"]))
+
+    # --- [수정된 부분 시작] ---
+    # 직업 추천 로직을 계층화하여 더 다양한 결과가 나오도록 개선
+    job_map = [
+        # Tier 1: 가장 구체적인 조건 (3개 조합)
+        ({'clear_voice', 'stable_tone', 'mid_energy'}, "아나운서"),
+        ({'dynamic_tone', 'high_energy'}, "MC"),
+        
+        # Tier 2: 일반적인 특징 조합 (2개 조합)
+        ({'low_energy', 'soft_voice'}, "오디오북 내레이터"),
+        ({'dynamic_tone', 'husky_voice'}, "배우"),
+        ({'high_energy', 'clear_voice'}, "유튜버"),
+        ({'soft_voice', 'stable_tone'}, "상담사"),
+        ({'clear_voice', 'dynamic_tone'}, "성우"),
+
+        # Tier 3: 핵심 특징 (1개) - 더 많은 경우를 포괄
+        ({'clear_voice'}, "가수"),
+        ({'stable_tone'}, "교사"),
+        ({'dynamic_tone'}, "팟캐스터"),
+        ({'high_energy'}, "강사"),
+        ({'low_energy'}, "통역사"),
+    ]
+    # 위에서부터 순서대로 맞는 규칙을 찾아 직업을 결정하고, 없으면 기본값(라디오 DJ)을 사용
+    job = next((job for conditions, job in job_map if conditions.issubset(profile)), "라디오 DJ")
+    # --- [수정된 부분 끝] ---
+
+    tag_map = {
+        ('low_energy', 'soft_voice'): "ASMR 천재", ('clear_voice', 'high_pitch'): "귀호강 주인공",
+        ('low_pitch', 'stable_tone'): "카리스마 폭발", ('soft_voice', 'clear_voice'): "목소리 꿀",
+        ('high_energy', 'dynamic_tone'): "매력 발산기", ('husky_voice', 'low_pitch'): "보이스 피셔",
+    }
+    tag = "힐링 보이스"
+    for p_set, t_type in tag_map.items():
+        if all(p in profile for p in p_set): tag = t_type; break
+
+    color_map = {
+        ('high_pitch', 'clear_voice'): "사파이어 블루", ('high_pitch', 'high_energy'): "골든 옐로우",
+        ('low_pitch', 'stable_tone'): "오닉스 블랙", ('low_pitch', 'husky_voice'): "루비 레드",
+        ('soft_voice', 'mid_pitch'): "로즈 골드", ('clear_voice', 'stable_tone'): "에메랄드 그린",
+        ('dynamic_tone', 'mid_energy'): "아메시스트 퍼플",
+    }
+    color = "실버 화이트"
+    for p_set, c_type in color_map.items():
+        if all(p in profile for p in p_set): color = c_type; break
+
+    return {
+        "voice_type": voice_type,
+        "animal_type": {k: v for k, v in animal_type.items() if k not in ['id']},
+        "personality_type": {k: v for k, v in personality_type.items() if k not in ['id']},
+        "compatibility_job": job,
+        "special_tag": tag,
+        "voice_color": color,
+    }
+
+def normalize_features_for_radar(features):
+    pitch_score = np.clip((features["pitch"] - 80) / (250 - 80) * 100, 10, 100)
+    energy_score = np.clip(features["energy"] * 1200, 10, 100)
+    tempo_score = np.clip((features["tempo"] - 70) / (180 - 70) * 100, 10, 100)
+    clearness_score = np.clip(features['harmonicity'] * 5 + 50, 10, 100)
+    stability_score = np.clip((40 - features["pitch_std"]), 10, 100)
+    
+    return [
+        {"feature": "높이", "value": int(pitch_score)}, {"feature": "에너지", "value": int(energy_score)},
+        {"feature": "속도", "value": int(tempo_score)}, {"feature": "맑음", "value": int(clearness_score)},
+        {"feature": "안정감", "value": int(stability_score)},
+    ]
+
+def calculate_attraction_score(radar_data):
+    values = [item['value'] for item in radar_data]
+    average_score = np.mean(values)
+    std_dev = np.std(values)
+    balance_bonus = max(0, 25 - std_dev)
+    ideal_range_bonus = 10 if all(40 <= v <= 85 for v in values) else 0
+    final_score = 60 + (average_score - 50) * 0.5 + balance_bonus + ideal_range_bonus
+    return min(99, max(60, int(final_score)))
+
+@app.post("/api/analyze")
+async def analyze_voice(gender: str = Form(...), audio: UploadFile = File(...)):
+    try:
+        audio_bytes = await audio.read()
+        sound = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        
+        if sound.channels > 1: sound = sound.set_channels(1)
+        samples = np.array(sound.get_array_of_samples()).astype(np.float32) / (2 ** (sound.sample_width * 8 - 1))
+        
+        target_sr = 22050
+        y = librosa.resample(y=samples, orig_sr=sound.frame_rate, target_sr=target_sr)
+        sr = target_sr
+
+        features = {
+            "pitch": analyze_pitch(y, sr), "energy": analyze_energy(y), 
+            "tempo": analyze_tempo(y, sr), "pitch_std": analyze_pitch_std(y, sr),
+            "harmonicity": analyze_harmonicity(y)
+        }
+        
+        voice_profile = get_voice_profile(features)
+        detailed_results = analyze_details_based_on_profile(voice_profile)
+
+        spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+        
+        if gender == 'female':
+            age_key = get_age_key_female(features["pitch"], spectral_centroid, features["energy"])
+        else: # male or other
+            age_key = get_age_key_male(features["pitch"], spectral_centroid, features["energy"])
+
+        age_info = voice_analysis_data["age_groups"].get(age_key, voice_analysis_data["age_groups"]["30s_early"])
+        
+        radar_data = normalize_features_for_radar(features)
+        attraction_score = calculate_attraction_score(radar_data)
+        uniqueness_score = min(99, max(70, int(70 + features["pitch_std"] * 0.5 + abs(features["energy"]-0.08)*500 + (5 - abs(features['harmonicity']-5))*2 )))
+
+        result = {
+            "age_range": age_info["range"],
+            "humor_quote": random.choice(age_info["humor"]),
+            "attraction_score": attraction_score,
+            "uniqueness_score": uniqueness_score,
+            "radar_data": radar_data,
+            **detailed_results
+        }
+        
+        return JSONResponse(content=result)
+        
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"An error occurred during analysis: {str(e)}")
+
+@app.get("/")
+async def root():
+    return {"message": "Voice Age API is running!"}
