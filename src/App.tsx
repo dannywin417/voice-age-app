@@ -1,4 +1,4 @@
-// src/App.tsx
+// src/App.tsx (수정 완료된 최종본)
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
@@ -23,11 +23,10 @@ type Status = 'idle' | 'recording' | 'recorded' | 'analyzing' | 'result';
 interface AnalysisResult {
   age_range: string;
   humor_quote: string;
-  voice_type: string;
+  voice_type: { type: string; desc: string };
   attraction_score: number;
-  animal_type: { type: string; emoji: string; desc: string };
-  personality_type: { type: string; emoji: string; color: string };
-  compatibility_job: string;
+  personality_type: { type: string; emoji: string; color: string; desc: string };
+  compatibility_job: { job: string; reason: string };
   special_tag: string;
   voice_color: string;
   uniqueness_score: number;
@@ -98,22 +97,21 @@ const ResultCaptureCard: React.FC<{ result: AnalysisResult }> = ({ result }) => 
       </div>
       <blockquote className="share-card__quote">“{result.humor_quote}”</blockquote>
       <div className="share-card__grid">
-        <div className="mini-card">
-          <div className="mini-card__head"><span className="emoji">{result.animal_type.emoji}</span><span className="mini-card__title">동물상</span></div>
-          <div className="mini-card__value">{result.animal_type.type}</div>
-          <div className="mini-card__desc">{result.animal_type.desc}</div>
-        </div>
-        <div className="mini-card">
-          <div className="mini-card__head"><span className="emoji" style={{ color: result.personality_type.color }}>{result.personality_type.emoji}</span><span className="mini-card__title">성격</span></div>
+        <div className="mini-card personality-card-share">
+          <div className="mini-card__head">
+            <span className="emoji" style={{ color: result.personality_type.color }}>{result.personality_type.emoji}</span>
+            <span className="mini-card__title">목소리 성격 유형</span>
+          </div>
           <div className="mini-card__value">{result.personality_type.type}</div>
+          <div className="mini-card__desc">{result.personality_type.desc}</div>
         </div>
         <div className="mini-card">
-          <div className="mini-card__head"><Zap size={16} /><span className="mini-card__title">보이스</span></div>
-          <div className="mini-card__value">{result.voice_type}</div>
+          <div className="mini-card__head"><Zap size={16} /><span className="mini-card__title">보이스 타입</span></div>
+          <div className="mini-card__value">{result.voice_type.type}</div>
         </div>
         <div className="mini-card">
           <div className="mini-card__head"><span className="emoji">💼</span><span className="mini-card__title">어울리는 직업</span></div>
-          <div className="mini-card__value">{result.compatibility_job}</div>
+          <div className="mini-card__value">{result.compatibility_job.job}</div>
         </div>
       </div>
       <div className="share-card__hashtags">
@@ -270,7 +268,6 @@ const VoiceAgeApp: React.FC = () => {
     try {
       const apiUrl = `${import.meta.env.VITE_API_URL}/api/analyze`;
       const response = await fetch(apiUrl, { method: 'POST', body: formData });
-      // const response = await fetch('/api/analyze', { method: 'POST', body: formData });
       if (!response.ok) {
         let msg = '분석 중 에러가 발생했습니다.';
         try { const errorData = await response.json(); msg = errorData.detail || msg; } catch {}
@@ -343,7 +340,52 @@ const VoiceAgeApp: React.FC = () => {
           const isUnique = analysisResult.uniqueness_score >= 90;
           return (<div className="result-container result-summary"><div className="result-header"><h2 ref={titleRef} tabIndex={-1} className="result-title" aria-live="polite">{analysisResult.age_range}의 목소리 {isUnique && <span className="badge-unique">UNIQUE 90+</span>}</h2><p className="humor-quote">"{analysisResult.humor_quote}"</p></div>{insightChips.length > 0 && (<div className="insight-chips" aria-label="목소리 인사이트">{insightChips.map((chip, i) => <span key={i} className="chip">{chip}</span>)}</div>)}<h3 className="radar-title">목소리 특징 분석</h3><VoiceRadarChart data={analysisResult.radar_data} /><div className="scores-row"><div className="score-item"><Heart className="score-icon" size={20} /><span className="score-label">매력도</span><span className="score-value">{analysisResult.attraction_score}점</span><p className="score-desc">목소리의 안정감과 편안함</p></div><div className="score-item"><Star className="score-icon" size={20} /><span className="score-label">유니크</span><span className="score-value">{analysisResult.uniqueness_score}%</span><p className="score-desc">다른 목소리와의 차별성</p></div></div><button onClick={() => setResultView('details')} className="btn btn-details" aria-label="상세 결과 보기">자세한 결과 보기 <ArrowRight size={18} /></button></div>);
         } else {
-          return (<div className="result-container result-details"><div className="result-header"><h2 className="result-title">상세 분석 결과</h2></div><div className="result-details-grid"><div className="detail-card animal-card"><div className="card-header"><span className="animal-emoji">{analysisResult.animal_type.emoji}</span><div><h4>목소리 동물상</h4><p>{analysisResult.animal_type.type}</p></div></div><span className="card-desc">{analysisResult.animal_type.desc}</span></div><div className="detail-card personality-card"><div className="card-header"><span className="personality-emoji" style={{ color: analysisResult.personality_type.color }}>{analysisResult.personality_type.emoji}</span><div><h4>성격 유형</h4><p>{analysisResult.personality_type.type}</p></div></div></div><div className="detail-card voice-card"><div className="card-header"><Zap size={24} color="#8b5cf6" /><div><h4>목소리 타입</h4><p>{analysisResult.voice_type}</p></div></div></div><div className="detail-card job-card"><div className="card-header"><span className="job-emoji">💼</span><div><h4>어울리는 직업</h4><p>{analysisResult.compatibility_job}</p></div></div></div></div><div className="special-tags"><span className="special-tag">#{analysisResult.special_tag}</span><span className="special-tag">#{analysisResult.voice_color}</span></div><button onClick={() => setResultView('summary')} className="btn btn-back" aria-label="요약으로 돌아가기"><ArrowLeft size={18} /> 요약으로 돌아가기</button></div>);
+          return (
+            <div className="result-container result-details">
+              <div className="result-header">
+                <h2 className="result-title">상세 분석 결과</h2>
+              </div>
+              <div className="result-details-list">
+                <div className="detail-card personality-card">
+                  <div className="card-header">
+                    <span className="personality-emoji" style={{ color: analysisResult.personality_type.color }}>{analysisResult.personality_type.emoji}</span>
+                    <div>
+                      <h4>목소리 성격 유형</h4>
+                      <p>{analysisResult.personality_type.type}</p>
+                    </div>
+                  </div>
+                  <span className="card-desc">{analysisResult.personality_type.desc}</span>
+                </div>
+                <div className="detail-card voice-card">
+                  <div className="card-header">
+                    <Zap size={24} color="#8b5cf6" />
+                    <div>
+                      <h4>목소리 타입</h4>
+                      <p>{analysisResult.voice_type.type}</p>
+                    </div>
+                  </div>
+                  <span className="card-desc">{analysisResult.voice_type.desc}</span>
+                </div>
+                <div className="detail-card job-card">
+                  <div className="card-header">
+                    <span className="job-emoji">💼</span>
+                    <div>
+                      <h4>어울리는 직업</h4>
+                      <p>{analysisResult.compatibility_job.job}</p>
+                    </div>
+                  </div>
+                   <span className="card-desc">{analysisResult.compatibility_job.reason}</span>
+                </div>
+              </div>
+              <div className="special-tags">
+                <span className="special-tag">#{analysisResult.special_tag}</span>
+                <span className="special-tag">#{analysisResult.voice_color}</span>
+              </div>
+              <button onClick={() => setResultView('summary')} className="btn btn-back" aria-label="요약으로 돌아가기">
+                <ArrowLeft size={18} /> 요약으로 돌아가기
+              </button>
+            </div>
+          );
         }
       case 'idle':
       default:
@@ -389,7 +431,7 @@ const VoiceAgeApp: React.FC = () => {
           </div>
         </div>
       </main>
-      <footer className="app-footer"><p>🎯 목소리 나이대 + 성격 + 매력도 + 동물상까지!</p></footer>
+      <footer className="app-footer"><p>🎯 목소리 나이대 + 성격 + 매력도 + 타입까지!</p></footer>
       {status === 'result' && analysisResult && (<div className="cta-sticky" role="region" aria-label="공유 및 저장"><button onClick={shareResult} className="btn btn-share" aria-label="결과 공유하기"><Share2 size={18} />공유</button><button onClick={downloadResult} className="btn btn-download" aria-label="결과 저장하기"><Download size={18} />저장</button></div>)}
       {isCapturing && analysisResult && (<div className="capture-container"><ResultCaptureCard result={analysisResult} /></div>)}
       {isCapturing && !analysisResult && (<div className="modal-overlay"><div className="share-modal"><h3>결과 이미지 생성 중...</h3><p>잠시만 기다려주세요!</p><div className="analyzing-icon"><div className="analyzing-icon-inner"><Download size={32} color="white" /></div></div></div></div>)}

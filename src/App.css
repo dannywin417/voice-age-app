@@ -1,4 +1,4 @@
-/* app.css
+/* src/App.css (UI 깨짐 현상 해결된 최종본) */
 
 /* 폰트 & 리셋 */
 body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
@@ -28,7 +28,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 .card-status-display { text-align: center; margin-bottom: 24px; min-height: 220px; display: flex; align-items: center; justify-content: center; }
 .status-content { display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%; }
 
-/* Idle */
+/* Idle, Recording, Recorded, Analyzing 상태 (변경 없음) */
 .idle-icon { width: 120px; height: 120px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden; border:0; }
 .idle-icon:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.05); }
 .idle-icon:focus-visible{ outline:none; box-shadow: var(--focus); }
@@ -37,22 +37,14 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .idle-text h2 { font-size: 1.6rem; font-weight: 800; margin: 0 0 8px 0; }
 .idle-text p { font-size: 1rem; color: var(--text-dim); margin: 0 0 16px 0; }
-.idle-features { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-.idle-features span { background: rgba(255, 255, 255, 0.15); padding: 6px 12px; border-radius: 16px; font-size: 0.85rem; font-weight: 600; }
-
-/* Recording */
 .recording-text .info { font-size: 1rem; color: var(--text-dim); }
 .recording-wave { display: flex; gap: 4px; align-items: end; height: 40px; }
 .wave-bar { width: 4px; background: rgba(255, 255, 255, 0.9); border-radius: 2px; }
-
-/* Recorded */
 .recorded-icon { width: 120px; height: 120px; background: var(--ok); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: successBounce 0.6s ease-out; }
 @keyframes successBounce { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.05); } 70% { transform: scale(0.9); } 100% { transform: scale(1); opacity: 1; } }
 .recorded-text h2 { font-size: 1.4rem; font-weight: 800; margin: 0 0 8px 0; }
 .recorded-text p { font-size: 1rem; color: var(--text-dim); margin: 0 0 12px 0; }
 .recorded-preview { display: inline-flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.15); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; }
-
-/* Analyzing */
 .analyzing-icon { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: spin 2s linear infinite; background: conic-gradient(from 0deg, #8b5cf6, #ec4899, #f97316, #8b5cf6); padding: 8px; }
 .analyzing-icon-inner { width: 100%; height: 100%; background: rgba(255, 255, 255, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -81,14 +73,31 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 .score-desc { font-size: 0.8rem; margin: 4px 0 0 0; color: var(--text-soft); text-align: center; }
 .radar-chart-container { width: 100%; height: 250px; margin: 0; }
 .radar-title { font-size: 1rem; font-weight: 700; color: var(--text-dim); text-align: center; margin: 18px 0 0 0; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 18px; }
-.result-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
-.detail-card { background: var(--glass-strong); border-radius: 20px; padding: 20px; backdrop-filter: blur(10px); border: 1px solid var(--glass-border); transition: transform 0.2s ease; }
+
+/* === [중요] 상세 결과 UI 수정된 부분 === */
+.result-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.detail-card { 
+  background: var(--glass-strong); 
+  border-radius: 20px; 
+  padding: 20px; 
+  backdrop-filter: blur(10px); 
+  border: 1px solid var(--glass-border); 
+  transition: transform 0.2s ease; 
+  text-align: left;
+}
 .detail-card:hover { transform: translateY(-2px); }
 .card-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
-.animal-emoji, .personality-emoji, .job-emoji { font-size: 2rem; flex-shrink: 0; }
+.personality-emoji, .job-emoji { font-size: 2rem; flex-shrink: 0; }
 .card-header h4 { font-size: 0.9rem; font-weight: 800; margin: 0 0 4px 0; color: var(--text-soft); }
 .card-header p { font-size: 0.98rem; font-weight: 800; margin: 0; line-height: 1.3; }
-.card-desc { font-size: 0.85rem; color: var(--text-soft); font-style: italic; }
+.card-desc { font-size: 0.88rem; color: var(--text-dim); line-height: 1.6; }
+/* === 여기까지 === */
+
 .special-tags { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 16px; }
 .special-tag { background: linear-gradient(45deg, #8b5cf6, #ec4899); color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 800; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3); }
 
@@ -142,10 +151,10 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 .toast{ position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,30,30,.9); color:#fff; padding:10px 14px; border-radius:14px; box-shadow: var(--shadow-md); z-index: 1200; }
 
 /* 접근성/성능 */
-@media (max-width: 480px) { .app-container { padding: 20px 12px; } .card { padding: 24px; backdrop-filter: blur(10px); } .title-group h1 { font-size: 2.1rem; } .result-details-grid { grid-template-columns: 1fr; } .scores-row { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .app-container { padding: 20px 12px; } .card { padding: 24px; backdrop-filter: blur(10px); } .title-group h1 { font-size: 2.1rem; } .scores-row { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce){ .sparkle-icon, .analyzing-icon { animation: none; } }
 
-/* 공유/저장용 카드 스타일 */
+/* === [중요] 공유/저장용 카드 스타일 수정된 부분 === */
 .capture-container { position: absolute; top: 0; left: -9999px; z-index: -1; width: 720px; padding: 36px; background: linear-gradient(135deg, #5f68e6 0%, #6b53b4 45%, #8f4fa8 100%); color: white; box-sizing: content-box; }
 .share-card{ position: relative; width: 100%; border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.28); background: radial-gradient(1200px 800px at 10% -10%, rgba(255,255,255,.14), transparent 60%), radial-gradient(800px 600px at 100% 0%, rgba(255,255,255,.08), transparent 55%), rgba(255,255,255,.12); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.18); }
 .share-card__frame{ position:absolute; inset:0; pointer-events:none; background: linear-gradient(135deg, rgba(255,255,255,.6), rgba(255,255,255,0) 30%) border-box; mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0); -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0); }
@@ -166,8 +175,9 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 .metric__label{ font-size:.8rem; opacity:.85; }
 .metric__value{ font-size:1.15rem; font-weight:900; }
 .share-card__quote{ margin: 12px 0 16px; padding: 14px 16px; background: rgba(0,0,0,.18); border-left: 4px solid rgba(245,158,11,.9); border-radius: 12px; font-size: .98rem; line-height: 1.5; }
-.share-card__grid{ display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.share-card__grid{ display:grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
 .mini-card{ background: rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.20); border-radius: 14px; padding: 12px; }
+.mini-card.personality-card-share { grid-column: span 2; }
 .mini-card__head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; opacity:.95; }
 .mini-card__title{ font-size:.8rem; font-weight:800; }
 .mini-card__value{ font-weight:900; font-size:.95rem; line-height:1.25; }
@@ -178,7 +188,7 @@ body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'R
 .share-card__footer{ display:flex; align-items:center; justify-content:space-between; padding: 10px 16px; border-top: 1px solid rgba(255,255,255,.18); background: linear-gradient(90deg, rgba(255,255,255,.12), rgba(255,255,255,.06)); }
 .footer__brand{ display:inline-flex; align-items:center; gap:6px; font-weight:900; letter-spacing:.08em; }
 .footer__url{ font-size:.85rem; opacity:.9; }
-@media (max-width: 720px){ .share-card__grid{ grid-template-columns: 1fr 1fr; } }
+/* === 여기까지 === */
 
 /* Idle 상태 - 성별 선택 */
 .gender-selector { margin-bottom: 20px; width: 100%; }

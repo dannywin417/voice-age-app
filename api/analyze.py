@@ -11,7 +11,7 @@ import random
 import traceback
 import hashlib
 
-API_VERSION = "1.3.0"
+API_VERSION = "1.4.0" # CHANGED: 버전 업데이트
 
 app = FastAPI()
 
@@ -19,7 +19,7 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://voice-age-app.vercel.app"  # 🚨 에러 로그에 나온 주소를 정확하게 추가
+    "https://voice-age-app.vercel.app"
 ]
 
 app.add_middleware(
@@ -47,79 +47,78 @@ voice_analysis_data = {
         "40s_late": {"range": "40대 후반", "humor": ["지혜롭지만 아직 스마트폰 기능을 다 모르는 목소리!", "'내가 너 때는...' 전설의 시작을 알리는 목소리!", "인생의 단맛을 아는 동시에 쓴맛도 아는 목소리!", "다큐 보면서 '역시 옛날이 좋았어' 할 목소리!", "가족여행 계획 세우는 게 취미가 된 목소리!", "친구 모임에서 '건강이 최고야' 외치는 목소리!"]},
         "50s_plus": {"range": "50대 이상", "humor": ["모든 것을 다 겪어본 '인생 고수'의 여유로운 목소리!", "차 한 잔에 '인생 철학'을 담아낼 수 있는 목소리 🍵", "'이제야 진짜 내 인생이 시작이야' 하는 목소리 🎭", "손자 손녀에게 '옛날에 할아버지는...' 시전하는 목소리!", "등산복이 일상복이 된 목소리 🏔️", "텃밭에서 '내가 기른 배추가 최고야' 하는 목소리!"]},
     },
-    "animalTypes": [
-        {"id": "cat", "type": "고양이상", "emoji": "🐱", "desc": "츤데레의 완성체, 관심없는 척 하지만 사실 관종"},
-        {"id": "dog", "type": "강아지상", "emoji": "🐶", "desc": "세상 모든 사람이 좋은 사람일 거라고 믿는 순수함"},
-        {"id": "bear", "type": "곰상", "emoji": "🐻", "desc": "포근한 인간 담요, 안기고 싶게 만드는 마성의 체질"},
-        {"id": "fox", "type": "여우상", "emoji": "🦊", "desc": "계산기보다 빠른 두뇌, 눈빛만으로 사람 홀리는 마법사"},
-        {"id": "hamster", "type": "햄스터상", "emoji": "🐹", "desc": "입에 음식 가득 넣고도 귀여운 반칙급 외모"},
-        {"id": "lion", "type": "사자상", "emoji": "🦁", "desc": "가만히 있어도 포스 폭발, 천상천하 유아독존"},
-        {"id": "rabbit", "type": "토끼상", "emoji": "🐰", "desc": "깜찍함으로 세상을 정복하는 중, 보호본능 자극 전문가"},
-        {"id": "wolf", "type": "늑대상", "emoji": "🐺", "desc": "야성미 철철 흘러넘치는 매력, 길들여지지 않는 자유로운 영혼"}
+    # CHANGED: 동물상 제거
+    "personalityTypes": [ # CHANGED: "목소리 성격 유형"으로 변경하고 설명 추가
+        {"id": "leader", "type": "타고난 리더형", "emoji": "👑", "color": "#f59e0b", "desc": "낮고 안정적인 톤에서 나오는 강한 신뢰감과 카리스마가 돋보입니다."},
+        {"id": "emotional", "type": "따뜻한 감성형", "emoji": "💝", "color": "#ec4899", "desc": "부드럽고 온화한 음색으로, 듣는 사람의 마음을 편안하게 만드는 공감 능력이 뛰어납니다."},
+        {"id": "maker", "type": "분위기 메이커형", "emoji": "🎉", "color": "#8b5cf6", "desc": "높은 에너지와 다채로운 억양으로 주변 분위기를 밝고 활기차게 이끌어갑니다."},
+        {"id": "stable", "type": "깊고 차분한 안정형", "emoji": "🧘", "color": "#06b6d4", "desc": "변화가 적고 일정한 톤을 유지하여, 진중하고 신중한 인상을 줍니다."},
+        {"id": "humorous", "type": "유머러스한 재미형", "emoji": "😄", "color": "#10b981", "desc": "예상치 못한 톤 변화와 재치 있는 음색으로 대화에 활력을 불어넣습니다."},
+        {"id": "artist", "type": "창의적인 아티스트형", "emoji": "🎨", "color": "#f97316", "desc": "넓은 음역대와 표현력을 통해 자신만의 독특한 개성을 목소리로 표현합니다."},
+        {"id": "analytical", "type": "지적이고 분석적인 형", "emoji": "🤓", "color": "#6366f1", "desc": "명확하고 또렷한 발음으로 논리 정연하게 자신의 생각을 전달하는 데 능숙합니다."},
+        {"id": 'active', 'type': '활동적인 스포츠형', 'emoji': '🏃', 'color': '#ef4444', 'desc': '빠르고 힘 있는 목소리로, 넘치는 열정과 에너지를 그대로 보여줍니다.'},
     ],
-    "personalityTypes": [
-        {"id": "leader", "type": "타고난 리더형", "emoji": "👑", "color": "#f59e0b"},
-        {"id": "emotional", "type": "따뜻한 감성형", "emoji": "💝", "color": "#ec4899"},
-        {"id": "maker", "type": "분위기 메이커형", "emoji": "🎉", "color": "#8b5cf6"},
-        {"id": "stable", "type": "깊고 차분한 안정형", "emoji": "🧘", "color": "#06b6d4"},
-        {"id": "humorous", "type": "유머러스한 재미형", "emoji": "😄", "color": "#10b981"},
-        {"id": "artist", "type": "창의적인 아티스트형", "emoji": "🎨", "color": "#f97316"},
-        {"id": "analytical", "type": "지적이고 분석적인 형", "emoji": "🤓", "color": "#6366f1"},
-        {"id": "active", "type": "활동적인 스포츠형", "emoji": "🏃", "color": "#ef4444"},
+    # CHANGED: 보이스 타입에 설명 추가
+    "voiceTypes": [
+        {"id": "energy", "type": "활기찬 에너지 보이스", "desc": "높은 에너지와 다채로운 톤 변화로 생동감 넘치는 분위기를 만듭니다.", "profile_set": ('high_energy', 'dynamic_tone')},
+        {"id": "crystal", "type": "맑고 청량한 크리스탈 보이스", "desc": "높고 깨끗한 음색이 특징으로, 수정처럼 투명하고 상쾌한 느낌을 줍니다.", "profile_set": ('high_pitch', 'clear_voice')},
+        {"id": "base", "type": "깊고 카리스마 있는 베이스 보이스", "desc": "낮고 안정적인 톤이 강한 신뢰감을 주며, 묵직한 존재감을 드러냅니다.", "profile_set": ('low_pitch', 'stable_tone')},
+        {"id": "whisper", "type": "차분하고 속삭이는 위스퍼 보이스", "desc": "낮은 에너지와 부드러운 음색으로, 비밀 이야기를 나누듯 친밀한 분위기를 형성합니다.", "profile_set": ('low_energy', 'soft_voice')},
+        {"id": "honey", "type": "따뜻하고 부드러운 허니 보이스", "desc": "꿀처럼 달콤하고 매끄러운 음색으로, 듣는 사람의 마음을 편안하게 녹여줍니다.", "profile_set": ('clear_voice',)},
+        {"id": "thunder", "type": "파워풀하고 강렬한 썬더 보이스", "desc": "다소 거칠지만 힘 있는 톤이 폭발적인 에너지를 전달하며 강한 인상을 남깁니다.", "profile_set": ('husky_voice', 'high_energy')},
+        {"id": "moonlight", "type": "감성적이고 몽환적인 문라이트 보이스", "desc": "다양한 톤 변화와 감성적인 표현력으로 달빛처럼 신비롭고 빠져드는 매력이 있습니다.", "profile_set": ('mid_energy', 'dynamic_tone')},
+        {"id": "mint", "type": "시원하고 깔끔한 민트 보이스", "desc": "군더더기 없이 깔끔하고 정돈된 톤으로, 시원하고 상쾌한 인상을 줍니다.", "profile_set": ()} # Default
     ],
-    "compatibilityJobs": ["라디오 DJ", "성우", "가수", "아나운서", "팟캐스터", "유튜버", "교사", "상담사", "배우", "MC", "오디오북 내레이터", "통역사", "콜센터 상담원", "강사"],
+    # CHANGED: 직업 추천 이유 추가
+    "jobReasons": {
+        "아나운서": "깨끗하고 안정적인 톤이 정확한 정보 전달에 신뢰감을 더하기 때문입니다.",
+        "MC": "높은 에너지와 다이나믹한 톤 변화로 대중의 이목을 끄는 능력이 탁월하기 때문입니다.",
+        "오디오북 내레이터": "차분하고 부드러운 목소리가 듣는 이를 이야기에 깊이 몰입하게 만들기 때문입니다.",
+        "배우": "목소리의 감정 표현 범위가 넓어 다양한 역할을 소화할 수 있는 잠재력이 돋보이기 때문입니다.",
+        "유튜버": "에너지 넘치고 개성 있는 목소리로 시청자들과 친근하게 소통하는 데 유리하기 때문입니다.",
+        "상담사": "부드럽고 안정적인 음색이 상대방에게 편안함을 주어 마음을 열게 만들기 때문입니다.",
+        "성우": "깨끗하고 표현력 좋은 목소리로 캐릭터에 생동감을 불어넣을 수 있기 때문입니다.",
+        "가수": "맑고 매력적인 음색과 넓은 음역대를 가지고 있어 멜로디를 표현하는 데 강점이 있기 때문입니다.",
+        "교사": "안정적이고 신뢰감 있는 목소리로 학생들의 집중력을 높이고 지식을 효과적으로 전달할 수 있기 때문입니다.",
+        "팟캐스터": "다채로운 톤과 편안한 음색으로 장시간 청취에도 지루하지 않은 매력을 주기 때문입니다.",
+        "강사": "에너지 넘치고 힘 있는 목소리로 청중을 압도하고 강의에 대한 집중도를 높이기 때문입니다.",
+        "통역사": "깨끗하고 안정적인 톤이 복잡한 내용도 명확하고 신뢰감 있게 전달하기 때문입니다.",
+        "라디오 DJ": "부드럽고 편안한 목소리가 청취자들과 깊은 유대감을 형성하는 데 매우 효과적이기 때문입니다."
+    },
     "specialTags": ["ASMR 천재", "목소리 마약", "귀호강 주인공", "보이스 피셔", "음성 치료사", "힐링 보이스", "매력 발산기", "카리스마 폭발", "목소리 꿀", "보컬 DNA", "음성 마술사", "귀감 제조기"],
     "voiceColors": ["루비 레드", "사파이어 블루", "에메랄드 그린", "골든 옐로우", "아메시스트 퍼플", "다이아몬드 화이트", "오닉스 블랙", "로즈 골드", "실버 화이트", "코발트 블루"]
 }
 
-# --- 유틸 & 전처리 ---
-
+# --- 유틸 & 전처리 --- (변경 없음)
 def trim_and_normalize(y, sr):
     y = librosa.util.normalize(y)
     y, _ = librosa.effects.trim(y, top_db=30)
     return y
 
 def median_filter_1d(x, k=5):
-    if len(x) < k:
-        return x
+    if len(x) < k: return x
     pad = k // 2
     xp = np.pad(x, (pad, pad), mode='edge')
     return np.array([np.median(xp[i:i + k]) for i in range(len(x))])
 
-# --- 피치 통합 추출 (median Hz, std Hz, std cents) ---
-
+# --- 피처 추출 함수들 --- (변경 없음)
 def extract_pitch_stats(y, sr):
-    f0, _, _ = librosa.pyin(
-        y,
-        fmin=librosa.note_to_hz('C2'),
-        fmax=librosa.note_to_hz('C7'),
-        frame_length=1024,
-        hop_length=256,
-        center=True
-    )
+    f0, _, _ = librosa.pyin(y, fmin=librosa.note_to_hz('C2'), fmax=librosa.note_to_hz('C7'), frame_length=1024, hop_length=256, center=True)
     v = f0[~np.isnan(f0)]
-    if len(v) == 0:
-        return 150.0, 15.0, 80.0  # 안전 기본값
+    if len(v) == 0: return 150.0, 15.0, 80.0
     v = median_filter_1d(v, k=5)
     med = float(np.median(v))
-    if len(v) == 1:
-        return med, 15.0, 80.0
+    if len(v) == 1: return med, 15.0, 80.0
     std_hz = float(np.std(v))
-    std_cents = float(1200.0 * np.std(np.log2(v / med)))  # 피치 불변성
+    std_cents = float(1200.0 * np.std(np.log2(v / med)))
     return med, std_hz, std_cents
-
-# --- 에너지 (레벨 무감화) ---
 
 def analyze_energy(y):
     rms = librosa.feature.rms(y=y)[0]
-    if np.all(rms == 0):
-        return 0.0
-    db = librosa.amplitude_to_db(rms, ref=np.max)  # 0..-inf
-    # 평균 dB를 0..1로 매핑(약 -60~0dB 가정)
+    if np.all(rms == 0): return 0.0
+    db = librosa.amplitude_to_db(rms, ref=np.max)
     norm = np.clip((db.mean() + 60.0) / 60.0, 0.0, 1.0)
     return float(norm)
-
-# --- 말하기 속도 프록시 (ZCR + Spectral Flux 하이브리드) ---
 
 def analyze_speaking_rate(y, sr):
     intervals = librosa.effects.split(y, top_db=30)
@@ -127,11 +126,8 @@ def analyze_speaking_rate(y, sr):
     z = float(np.mean(librosa.feature.zero_crossing_rate(y=yv, frame_length=1024, hop_length=256)))
     S = np.abs(librosa.stft(yv, n_fft=1024, hop_length=256))
     flux = float(np.mean(np.maximum(0, np.diff(S, axis=1)).mean(axis=0)))
-    proxy = 0.85 * z + 0.15 * (flux / np.maximum(S.mean(), 1e-6))  # 가벼운 보정
-    # 경험적 범위: 0.03..0.18 → 70..180
+    proxy = 0.85 * z + 0.15 * (flux / np.maximum(S.mean(), 1e-6))
     return float(70 + (np.clip(proxy, 0.03, 0.18) - 0.03) / (0.18 - 0.03) * (180 - 70))
-
-# --- 조화도(HNR) 안전화 ---
 
 def analyze_harmonicity(y):
     y_h, y_p = librosa.effects.hpss(y)
@@ -140,15 +136,11 @@ def analyze_harmonicity(y):
     hnr = 10.0 * np.log10(he / pe)
     return float(np.clip(hnr, -20.0, 20.0))
 
-# --- 스펙트럼 센트로이드 ---
-
 def analyze_spectral_centroid(y, sr):
     return float(np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)))
 
-# --- 나이대 추정 규칙 ---
-
+# --- 나이대 추정 규칙 --- (변경 없음)
 def get_age_key_female(pitch, spectral_centroid, energy_norm01):
-    """여성 목소리 나이대 추정 (에너지: 0~1 정규화 기준)"""
     if pitch > 245: return "10s"
     elif pitch > 220: return "20s_early"
     elif pitch > 200: return "20s_late"
@@ -157,7 +149,6 @@ def get_age_key_female(pitch, spectral_centroid, energy_norm01):
     else: return "50s_plus"
 
 def get_age_key_male(pitch, spectral_centroid, energy_norm01):
-    """남성 목소리 나이대 추정 (에너지: 0~1 정규화 기준)"""
     if pitch > 165: return "10s"
     elif pitch > 140: return "20s_early"
     elif pitch > 125: return "20s_late"
@@ -165,23 +156,18 @@ def get_age_key_male(pitch, spectral_centroid, energy_norm01):
     elif pitch > 95: return "40s_early" if spectral_centroid > 1800 else "40s_late"
     else: return "50s_plus"
 
-# --- 프로필 산출 (치우침 완화 임계값 상향) ---
-
+# --- 프로필 산출 --- (변경 없음)
 def get_voice_profile(features):
     profile = set()
-    # pitch band
     if features['pitch'] > 180: profile.add('high_pitch')
     elif features['pitch'] < 130: profile.add('low_pitch')
     else: profile.add('mid_pitch')
-    # energy (0~1)  ← high>0.75, low<0.30
     if features['energy'] > 0.75: profile.add('high_energy')
     elif features['energy'] < 0.30: profile.add('low_energy')
     else: profile.add('mid_energy')
-    # clarity
     if features['harmonicity'] > 7.0: profile.add('clear_voice')
     elif features['harmonicity'] < 3.0: profile.add('husky_voice')
     else: profile.add('soft_voice')
-    # stability: pitch std in cents ← dynamic>110c
     pitch_var = features.get('pitch_std_cents', None)
     if pitch_var is not None:
         profile.add('dynamic_tone' if pitch_var > 110.0 else 'stable_tone')
@@ -189,85 +175,53 @@ def get_voice_profile(features):
         profile.add('dynamic_tone' if features['pitch_std'] > 35 else 'stable_tone')
     return profile
 
-# --- 직업 가중치 스코어러 (쏠림 방지) ---
-
+# --- 직업 가중치 스코어러 ---
+# CHANGED: 추천 이유를 함께 반환하도록 수정
 def select_job_with_scores(profile, features, audio_bytes=None):
-    jobs = [
-        "아나운서","MC","오디오북 내레이터","배우","유튜버","상담사",
-        "성우","가수","교사","팟캐스터","강사","통역사","라디오 DJ"
-    ]
+    jobs = ["아나운서","MC","오디오북 내레이터","배우","유튜버","상담사", "성우","가수","교사","팟캐스터","강사","통역사","라디오 DJ"]
     scores = {j: 0.0 for j in jobs}
-
     tempo = float(features.get("tempo", 110.0))
-    fast = tempo >= 120
-    slow = tempo <= 95
-    mid_speed = 95 < tempo < 130
-
+    fast, slow, mid_speed = tempo >= 120, tempo <= 95, 95 < tempo < 130
     def add(job, w): scores[job] += w
-
-    # 아나운서
+    # (가중치 로직은 변경 없음)
     if 'clear_voice' in profile: add("아나운서", 2.5)
     if 'stable_tone' in profile: add("아나운서", 2.0)
     if 'mid_energy' in profile:  add("아나운서", 1.0)
     if mid_speed:                add("아나운서", 1.0)
-
-    # MC (엄격: 빠른 속도 + 에너지 + 다이내믹)
     if 'high_energy' in profile and 'dynamic_tone' in profile: add("MC", 2.0)
     if fast:                                              add("MC", 2.0)
     if 'clear_voice' in profile:                          add("MC", 1.0)
-
-    # 오디오북 내레이터
     if 'low_energy' in profile: add("오디오북 내레이터", 2.0)
     if 'soft_voice' in profile: add("오디오북 내레이터", 2.0)
     if 'stable_tone' in profile: add("오디오북 내레이터", 1.0)
     if slow:                     add("오디오북 내레이터", 1.5)
-
-    # 배우
     if 'dynamic_tone' in profile: add("배우", 2.0)
     if 'husky_voice' in profile:  add("배우", 1.0)
     if 'high_energy' in profile:  add("배우", 0.5)
-
-    # 유튜버
     if 'high_energy' in profile: add("유튜버", 1.5)
     if 'clear_voice' in profile: add("유튜버", 1.0)
     if 'dynamic_tone' in profile: add("유튜버", 1.0)
-
-    # 상담사
     if 'soft_voice' in profile:  add("상담사", 2.0)
     if 'stable_tone' in profile: add("상담사", 1.0)
     if 'low_energy' in profile:  add("상담사", 1.0)
-
-    # 성우
     if 'clear_voice' in profile: add("성우", 2.0)
     if 'dynamic_tone' in profile: add("성우", 1.0)
     if 'mid_energy' in profile:  add("성우", 1.0)
-
-    # 가수
     if 'clear_voice' in profile: add("가수", 1.0)
     if 'high_pitch' in profile:  add("가수", 1.0)
     if 'dynamic_tone' in profile: add("가수", 0.5)
-
-    # 교사
     if 'stable_tone' in profile: add("교사", 2.0)
     if 'mid_energy' in profile:  add("교사", 1.0)
-
-    # 팟캐스터
     if 'dynamic_tone' in profile: add("팟캐스터", 1.0)
     if 'soft_voice' in profile:   add("팟캐스터", 1.0)
     if 'mid_energy' in profile:   add("팟캐스터", 0.5)
-
-    # 강사
     if 'high_energy' in profile: add("강사", 2.0)
     if fast:                     add("강사", 1.0)
     if 'clear_voice' in profile: add("강사", 0.5)
-
-    # 통역사
     if 'clear_voice' in profile: add("통역사", 1.0)
     if 'stable_tone' in profile: add("통역사", 1.0)
     if mid_speed:                add("통역사", 1.0)
     if 'low_energy' in profile:  add("통역사", 0.5)
-
-    # 라디오 DJ
     if 'soft_voice' in profile:  add("라디오 DJ", 1.0)
     if 'low_energy' in profile:  add("라디오 DJ", 0.5)
     if 'stable_tone' in profile: add("라디오 DJ", 0.5)
@@ -279,132 +233,79 @@ def select_job_with_scores(profile, features, audio_bytes=None):
         top3 = sorted(top3, key=lambda kv: (kv[1], (h ^ hash(kv[0])) & 0xffff), reverse=True)
 
     best_job = top3[0][0]
+    # CHANGED: 직업 추천 이유 가져오기
+    reason = voice_analysis_data["jobReasons"].get(best_job, "당신의 다채로운 목소리 특성과 잘 어울리기 때문입니다.")
     candidates = [{"job": j, "score": round(s, 2)} for j, s in top3]
-    return best_job, candidates
+    return best_job, reason, candidates
 
-# --- 세부 결과 매핑 (직업=가중치 스코어러 사용) ---
 
+# --- 세부 결과 매핑 ---
+# CHANGED: 동물상 제거, 설명 추가된 데이터 구조 사용
 def analyze_details_based_on_profile(profile, features=None, audio_bytes=None):
-    """음성 프로필을 기반으로 모든 세부 결과를 결정"""
-    voice_type_map = {
-        ('high_energy', 'dynamic_tone'): "활기찬 에너지 보이스",
-        ('high_pitch', 'clear_voice'): "맑고 청량한 크리스탈 보이스",
-        ('low_pitch', 'stable_tone'): "깊고 카리스마 있는 베이스 보이스",
-        ('low_energy', 'soft_voice'): "차분하고 속삭이는 위스퍼 보이스",
-        ('clear_voice',): "따뜻하고 부드러운 허니 보이스",
-        ('husky_voice', 'high_energy'): "파워풀하고 강렬한 썬더 보이스",
-        ('mid_energy', 'dynamic_tone'): "감성적이고 몽환적인 문라이트 보이스",
-    }
-    voice_type = "시원하고 깔끔한 민트 보이스"
-    for p_set, v_type in voice_type_map.items():
-        if all(p in profile for p in p_set):
-            voice_type = v_type
-            break
-
-    animal_type_map = {
-        ('high_pitch', 'dynamic_tone'): "토끼상",
-        ('high_pitch', 'low_energy'): "고양이상",
-        ('high_pitch', 'high_energy'): "강아지상",
-        ('low_pitch', 'husky_voice'): "늑대상",
-        ('low_pitch', 'high_energy'): "사자상",
-        ('mid_pitch', 'stable_tone'): "곰상",
-        ('mid_pitch', 'dynamic_tone'): "여우상"
-    }
-    animal = "햄스터상"
-    for p_set, a_type in animal_type_map.items():
-        if all(p in profile for p in p_set):
-            animal = a_type
-            break
-    animal_type = next(
-        (item for item in voice_analysis_data["animalTypes"] if item["type"] == animal),
-        random.choice(voice_analysis_data["animalTypes"])
+    voice_type_info = next(
+        (vt for vt in voice_analysis_data["voiceTypes"] if all(p in profile for p in vt["profile_set"])),
+        voice_analysis_data["voiceTypes"][-1] # Default (mint)
     )
 
     personality_type_map = {
-        ('high_energy', 'dynamic_tone'): "분위기 메이커형",
-        ('low_energy', 'stable_tone'): "깊고 차분한 안정형",
-        ('low_pitch', 'stable_tone'): "타고난 리더형",
-        ('high_pitch', 'dynamic_tone'): "창의적인 아티스트형",
-        ('high_energy', 'clear_voice'): "활동적인 스포츠형",
-        ('husky_voice', 'dynamic_tone'): "유머러스한 재미형",
+        ('high_energy', 'dynamic_tone'): "분위기 메이커형", ('low_energy', 'stable_tone'): "깊고 차분한 안정형",
+        ('low_pitch', 'stable_tone'): "타고난 리더형", ('high_pitch', 'dynamic_tone'): "창의적인 아티스트형",
+        ('high_energy', 'clear_voice'): "활동적인 스포츠형", ('husky_voice', 'dynamic_tone'): "유머러스한 재미형",
         ('clear_voice', 'stable_tone'): "지적이고 분석적인 형",
     }
-    personality = "따뜻한 감성형"
+    personality = "따뜻한 감성형" # Default
     for p_set, p_type in personality_type_map.items():
         if all(p in profile for p in p_set):
-            personality = p_type
-            break
-    personality_type = next(
-        (item for item in voice_analysis_data["personalityTypes"] if item["type"] == personality),
-        random.choice(voice_analysis_data["personalityTypes"])
-    )
+            personality = p_type; break
+    personality_type = next((item for item in voice_analysis_data["personalityTypes"] if item["type"] == personality), random.choice(voice_analysis_data["personalityTypes"]))
 
-    # ▶ 가중치 스코어 기반 직업 선정
-    if features is not None:
-        job, job_candidates = select_job_with_scores(profile, features, audio_bytes)
-    else:
-        job = "라디오 DJ"
-        job_candidates = [{"job": "라디오 DJ", "score": 0.0}]
+    job, reason, job_candidates = select_job_with_scores(profile, features, audio_bytes) if features else ("라디오 DJ", "부드러운 목소리가 매력적입니다.", [])
 
     tag_map = {
-        ('low_energy', 'soft_voice'): "ASMR 천재",
-        ('clear_voice', 'high_pitch'): "귀호강 주인공",
-        ('low_pitch', 'stable_tone'): "카리스마 폭발",
-        ('soft_voice', 'clear_voice'): "목소리 꿀",
-        ('high_energy', 'dynamic_tone'): "매력 발산기",
-        ('husky_voice', 'low_pitch'): "보이스 피셔",
+        ('low_energy', 'soft_voice'): "ASMR 천재", ('clear_voice', 'high_pitch'): "귀호강 주인공",
+        ('low_pitch', 'stable_tone'): "카리스마 폭발", ('soft_voice', 'clear_voice'): "목소리 꿀",
+        ('high_energy', 'dynamic_tone'): "매력 발산기", ('husky_voice', 'low_pitch'): "보이스 피셔",
     }
-    tag = "힐링 보이스"
+    tag = "힐링 보이스" # Default
     for p_set, t_type in tag_map.items():
         if all(p in profile for p in p_set):
-            tag = t_type
-            break
+            tag = t_type; break
 
     color_map = {
-        ('high_pitch', 'clear_voice'): "사파이어 블루",
-        ('high_pitch', 'high_energy'): "골든 옐로우",
-        ('low_pitch', 'stable_tone'): "오닉스 블랙",
-        ('low_pitch', 'husky_voice'): "루비 레드",
-        ('soft_voice', 'mid_pitch'): "로즈 골드",
-        ('clear_voice', 'stable_tone'): "에메랄드 그린",
+        ('high_pitch', 'clear_voice'): "사파이어 블루", ('high_pitch', 'high_energy'): "골든 옐로우",
+        ('low_pitch', 'stable_tone'): "오닉스 블랙", ('low_pitch', 'husky_voice'): "루비 레드",
+        ('soft_voice', 'mid_pitch'): "로즈 골드", ('clear_voice', 'stable_tone'): "에메랄드 그린",
         ('dynamic_tone', 'mid_energy'): "아메시스트 퍼플",
     }
-    color = "실버 화이트"
+    color = "실버 화이트" # Default
     for p_set, c_type in color_map.items():
         if all(p in profile for p in p_set):
-            color = c_type
-            break
+            color = c_type; break
 
     return {
-        "voice_type": voice_type,
-        "animal_type": {k: v for k, v in animal_type.items() if k not in ['id']},
+        "voice_type": {k: v for k, v in voice_type_info.items() if k in ['type', 'desc']},
         "personality_type": {k: v for k, v in personality_type.items() if k not in ['id']},
-        "compatibility_job": job,
-        "job_candidates": job_candidates,   # 상위 3개 후보 제공
+        "compatibility_job": {"job": job, "reason": reason},
+        "job_candidates": job_candidates,
         "special_tag": tag,
         "voice_color": color,
     }
 
-# --- 레이더 정규화 (NaN 안전) ---
-
+# --- 레이더 정규화 ---
 def normalize_features_for_radar(features):
-    # pitch: 80~250Hz → 0~100
     pitch_score = np.nan_to_num((features["pitch"] - 80) / (250 - 80) * 100, nan=50.0)
-    # energy: 0~1 → 0~100
     energy_score = np.nan_to_num(features["energy"] * 100, nan=50.0)
-    # speaking rate(tempo 자리): 70~180 → 0~100
     tempo_score = np.nan_to_num((features["tempo"] - 70) / (180 - 70) * 100, nan=50.0)
-    # HNR → 완만 스케일 (2.5*dB + 50)
     clearness_score = np.nan_to_num(features['harmonicity'] * 2.5 + 50, nan=50.0)
-    # 안정감: 센트 표준편차 사용 시 더 타당 (작을수록 안정)
+    
+    # CHANGED: 안정감 점수 로직 수정 (더 관대하게)
     if "pitch_std_cents" in features:
         c = float(features["pitch_std_cents"])
-        # 40→90, 120→50, 200→10 로 매핑(구간 외는 양끝으로 포화)
-        stability_score = np.interp(c, [40, 120, 200], [90, 50, 10])
+        # 20(매우 안정)→95점, 80(보통)→70점, 150(다이나믹)→40점으로 매핑
+        stability_score = np.interp(c, [20, 80, 150], [95, 70, 40])
     else:
-        # Hz 표준편차일 때도 대략적 보정(피치가 높을수록 유리하므로 보수적으로)
         h = float(features["pitch_std"])
-        stability_score = np.interp(h, [5, 20, 40], [90, 50, 10])
+        stability_score = np.interp(h, [5, 20, 40], [95, 70, 40])
 
     stability_score = float(np.clip(stability_score, 10, 100))
 
@@ -416,7 +317,7 @@ def normalize_features_for_radar(features):
         {"feature": "안정감", "value": int(np.clip(stability_score, 10, 100))},
     ]
 
-def calculate_attraction_score(radar_data):
+def calculate_attraction_score(radar_data): # 변경 없음
     values = [item['value'] for item in radar_data]
     average_score = np.mean(values)
     std_dev = np.std(values)
@@ -425,118 +326,67 @@ def calculate_attraction_score(radar_data):
     final_score = 60 + (average_score - 50) * 0.5 + balance_bonus + ideal_range_bonus
     return min(99, max(60, int(final_score)))
 
-# --- 품질 진단 ---
-
+# --- 품질 진단 --- (변경 없음)
 def estimate_snr(y):
     rms = librosa.feature.rms(y=y)[0]
     med = np.median(rms)
     noise = np.percentile(rms, 10)
     return float(20 * np.log10((med + 1e-8) / (noise + 1e-8)))
 
-def clipping_ratio(y):
-    return float(np.mean(np.abs(y) > 0.98))
-
+def clipping_ratio(y): return float(np.mean(np.abs(y) > 0.98))
 def choose_deterministic(seq, audio_bytes):
-    if not seq:
-        return None
+    if not seq: return None
     h = int(hashlib.md5(audio_bytes).hexdigest(), 16)
     return seq[h % len(seq)]
 
 # --- 엔드포인트 ---
-
 @app.post("/api/analyze")
 async def analyze_voice(gender: str = Form(...), audio: UploadFile = File(...)):
     try:
-        # content-type 가드(브라우저 업로드는 종종 application/octet-stream)
-        if audio.content_type and not (
-            audio.content_type.startswith("audio/") or audio.content_type == "application/octet-stream"
-        ):
+        # (파일 처리 및 피처 추출은 변경 없음)
+        if audio.content_type and not (audio.content_type.startswith("audio/") or audio.content_type == "application/octet-stream"):
             raise HTTPException(status_code=400, detail=f"지원하지 않는 콘텐츠 타입입니다: {audio.content_type}")
-
         audio_bytes = await audio.read()
-        if not audio_bytes:
-            raise HTTPException(status_code=400, detail="오디오 파일이 비어 있습니다.")
-        if len(audio_bytes) > MAX_BYTES:
-            raise HTTPException(status_code=400, detail=f"파일이 너무 큽니다(≤ {MAX_BYTES // (1024*1024)}MB).")
-
-        # pydub 로드
-        try:
-            sound = AudioSegment.from_file(io.BytesIO(audio_bytes))
-        except Exception:
-            raise HTTPException(status_code=400, detail="오디오 포맷을 인식할 수 없습니다. WAV/MP3 등 표준 포맷을 사용해 주세요.")
-
-        # 모노 변환
-        if sound.channels > 1:
-            sound = sound.set_channels(1)
-
-        # float32 파형
+        if not audio_bytes or len(audio_bytes) > MAX_BYTES:
+             raise HTTPException(status_code=400, detail="파일이 비어있거나 너무 큽니다.")
+        try: sound = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        except Exception: raise HTTPException(status_code=400, detail="오디오 포맷을 인식할 수 없습니다.")
+        if sound.channels > 1: sound = sound.set_channels(1)
         samples = np.array(sound.get_array_of_samples()).astype(np.float32) / (2 ** (sound.sample_width * 8 - 1))
-
-        # 리샘플
         target_sr = 22050
         y = librosa.resample(y=samples, orig_sr=sound.frame_rate, target_sr=target_sr)
         sr = target_sr
-
-        # 전처리
         y = trim_and_normalize(y, sr)
-        if len(y) < int(MIN_SEC * sr):
-            raise HTTPException(status_code=400, detail=f"오디오 길이가 너무 짧습니다(≥{MIN_SEC:.1f}초 필요).")
-        if len(y) > int(MAX_SEC * sr):
-            y = y[:int(MAX_SEC * sr)]
+        if len(y) < int(MIN_SEC * sr): raise HTTPException(status_code=400, detail=f"오디오 길이가 너무 짧습니다(≥{MIN_SEC:.1f}초 필요).")
+        if len(y) > int(MAX_SEC * sr): y = y[:int(MAX_SEC * sr)]
 
-        # 특성 추출 (pyin 1회)
         pitch_med, pitch_std_hz, pitch_std_cents = extract_pitch_stats(y, sr)
-        energy = analyze_energy(y)                    # 0~1
-        speaking_rate = analyze_speaking_rate(y, sr)  # 70~180
-        hnr = analyze_harmonicity(y)                  # -20~20 (클리핑)
-        spec_cent = analyze_spectral_centroid(y, sr)
+        energy, speaking_rate, hnr, spec_cent = analyze_energy(y), analyze_speaking_rate(y, sr), analyze_harmonicity(y), analyze_spectral_centroid(y, sr)
 
-        features = {
-            "pitch": pitch_med,
-            "energy": energy,
-            "tempo": speaking_rate,              # 기존 키 유지(UI 호환)
-            "pitch_std": pitch_std_hz,
-            "pitch_std_cents": pitch_std_cents,
-            "harmonicity": hnr
-        }
+        features = {"pitch": pitch_med, "energy": energy, "tempo": speaking_rate, "pitch_std": pitch_std_hz, "pitch_std_cents": pitch_std_cents, "harmonicity": hnr}
 
         voice_profile = get_voice_profile(features)
         detailed_results = analyze_details_based_on_profile(voice_profile, features, audio_bytes)
 
-        # 나이대 추정
-        if gender == 'female':
-            age_key = get_age_key_female(features["pitch"], spec_cent, features["energy"])
-        else:  # male or other
-            age_key = get_age_key_male(features["pitch"], spec_cent, features["energy"])
-
+        if gender == 'female': age_key = get_age_key_female(features["pitch"], spec_cent, features["energy"])
+        else: age_key = get_age_key_male(features["pitch"], spec_cent, features["energy"])
         age_info = voice_analysis_data["age_groups"].get(age_key, voice_analysis_data["age_groups"]["30s_early"])
 
-        # 레이더/스코어
         radar_data = normalize_features_for_radar(features)
         attraction_score = calculate_attraction_score(radar_data)
 
-        # 유니크니스(안전 계산)
-        uniqueness_score = int(np.clip(
-            65
-            + 0.20 * np.nan_to_num(features.get("pitch_std_cents", 80.0))
-            + 25.0 * abs(np.nan_to_num(features["energy"]) - 0.5)
-            + 1.5 * abs(np.nan_to_num(features["harmonicity"]) - 5.0),
-            60, 99
-        ))
+        # CHANGED: 유니크 점수 로직 변경 (평균에서 벗어난 정도로 계산)
+        radar_values = np.array([item['value'] for item in radar_data])
+        deviation_from_mean = np.mean(np.abs(radar_values - 50)) # 50을 평균으로 가정
+        uniqueness_score = int(np.clip(50 + deviation_from_mean * 1.5, 50, 99))
 
-        # 입력 품질 경고
-        snr = estimate_snr(y)
-        clip = clipping_ratio(y)
-        voiced_ratio = float(sum((e - s) for s, e in librosa.effects.split(y, top_db=30)) / len(y))
+        # (품질 경고 및 결과 조합 부분은 변경 없음)
+        snr, clip, voiced_ratio = estimate_snr(y), clipping_ratio(y), float(sum((e - s) for s, e in librosa.effects.split(y, top_db=30)) / len(y))
         warnings = []
-        if snr < 10:
-            warnings.append("주변 소음이 커서 정확도가 떨어질 수 있어요.")
-        if clip > 0.02:
-            warnings.append("입력이 클리핑되었습니다. 마이크 입력 레벨을 낮춰주세요.")
-        if voiced_ratio < 0.4:
-            warnings.append("무음 구간이 많습니다. 2초 이상 또박또박 말해주세요.")
+        if snr < 10: warnings.append("주변 소음이 커서 정확도가 떨어질 수 있어요.")
+        if clip > 0.02: warnings.append("입력이 클리핑되었습니다. 마이크 입력 레벨을 낮춰주세요.")
+        if voiced_ratio < 0.4: warnings.append("무음 구간이 많습니다. 2초 이상 또박또박 말해주세요.")
 
-        # 결정적 유머 선택(같은 파일 → 같은 문구)
         humor = choose_deterministic(age_info["humor"], audio_bytes)
 
         result = {
@@ -549,19 +399,15 @@ async def analyze_voice(gender: str = Form(...), audio: UploadFile = File(...)):
             "warnings": warnings,
             **detailed_results
         }
-
         return JSONResponse(content=result)
 
-    except HTTPException:
-        raise
+    except HTTPException: raise
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"An error occurred during analysis: {str(e)}")
 
+# (루트 및 헬스 체크 엔드포인트는 변경 없음)
 @app.get("/")
-async def root():
-    return {"message": "Voice Age API is running!", "version": API_VERSION}
-
+async def root(): return {"message": "Voice Age API is running!", "version": API_VERSION}
 @app.get("/healthz")
-async def healthz():
-    return {"status": "ok", "version": API_VERSION}
+async def healthz(): return {"status": "ok", "version": API_VERSION}
